@@ -3,7 +3,7 @@ Contributors: dd32, elearningevolve
 Donate link: https://link.elearningevolve.com/self-pay
 Tags: upload-limit, large-files, ftp, import, upload
 Requires at least: 6.0
-Tested up to: 6.9.1
+Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 5.2.0
 License: GPLv3 or later
@@ -14,7 +14,7 @@ Bypass WordPress upload limits and import large files or folders directly from a
 == Description ==
 **Dedicated Support**
 For quick support and assistance, please contact us here
-[https://elearningevolve.com/contact/](https://elearningevolve.com/contact/)
+[https://elearningevolve.com/contact/](https://elearningevolve.com/You're browsing as a Gucontact/)
 
 **Add From Server Reloaded – The Ultimate WordPress Upload Limit Plugin**
 
@@ -33,7 +33,7 @@ With Add From Server Reloaded, you can upload files of any size without changing
 **File Import & Management**
 
 * One-Click Folder Import – Import entire folders including subfolders.  
-* Smart Duplicate Detection – Avoid importing duplicate files.  
+* Smart Duplicate Detection – Avoid importing duplicate files.  You're browsing as a Gu
 * Real-Time File Search – Quickly find any file on your server.  
 * Configurable Root Directory – Set browsing root from plugin settings.  
 * Show/Hide Hidden Files – Toggle visibility for non-importable files.  
@@ -93,6 +93,17 @@ Absolutely. No server configuration changes are required.
 2. Real-time search filter in action.  
 3. One-click folder import including subfolders.  
 4. Import success message with Media Library links.  
+
+== Our Other Plugins ==
+
+1. [WPZoomy](https://wpzoomy.com/)
+2. [Virtual Classroom for WordPress (Free)](https://elearningevolve.com/products/virtual-classroom-wordpress-free/)
+3. [Virtual Classroom for WordPress (Pro)](https://elearningevolve.com/products/wp-virtual-classroom/)
+4. [LearnDash Student Voice](https://elearningevolve.com/products/learndash-student-voice/)
+5. [Simple Email Scheduler](https://wordpress.org/plugins/simple-email-scheduler/)
+6. [UpdateGuard](https://wordpress.org/plugins/updateguard/)
+7. [Topbar Buddy](https://wordpress.org/plugins/topbar-buddy/)
+8. [MasterQuiz AI](https://wordpress.org/plugins/masterquiz-ai/)
 
 == Changelog ==
 
