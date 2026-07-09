@@ -5,7 +5,7 @@ Tags: upload-limit, large-files, ftp, import, upload
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.2.0
+Stable tag: 5.2.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -63,7 +63,7 @@ With Add From Server Reloaded, you can upload files of any size without changing
 
 **Compatibility**
 
-* WordPress 6.0 – 6.9.1  
+* WordPress 6.0 – 7.0  
 * PHP 7.4 – 8.3  
 * WooCommerce compatible  
 * Page builder compatible  
@@ -106,6 +106,11 @@ Absolutely. No server configuration changes are required.
 8. [MasterQuiz AI](https://wordpress.org/plugins/masterquiz-ai/)
 
 == Changelog ==
+
+= 5.2.1 – 2026-07-09 =
+* Fixed: Resolved "Unable to determine root directory" error on hosts where 
+  the default guessed path (home directory) isn't readable. Plugin now 
+  falls back to ABSPATH and uploads folder automatically — true zero-config.
 
 = 5.2.0 – 2026-02-27 =
 * Changed: Imports now use default WordPress year/month folder structure (e.g., uploads/2026/02/).

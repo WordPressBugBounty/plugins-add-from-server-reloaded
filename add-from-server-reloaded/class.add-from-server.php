@@ -265,9 +265,17 @@ class Plugin {
 		$root = rtrim( $root, '/' );
 
 		// Precautions: Validate root path exists and is readable.
-		if ( ! is_dir( $root ) || ! is_readable( $root ) ) {
-			$root = false;
-		}
+        if ( ! is_dir( $root ) || ! is_readable( $root ) ) {
+        // Guessed path wasn't accessible (common on locked-down shared hosting).
+        // Fall back to ABSPATH — this is always readable since WP itself runs from here.
+            $root = rtrim( ABSPATH, '/' );
+
+            if ( ! is_dir( $root ) || ! is_readable( $root ) ) {
+        // Last resort: uploads folder is always readable/writable by WP.
+                $uploads = wp_upload_dir( null, false );
+                $root    = ! empty( $uploads['basedir'] ) ? rtrim( $uploads['basedir'], '/' ) : false;
+    }
+}
 
 		// Additional security check for placeholder code.
 		if (

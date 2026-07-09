@@ -11,8 +11,8 @@
 | Field | Value |
 |-------|-------|
 | **Requires at least** | 6.0 |
-| **Tested up to** | 6.9.1 |
-| **Stable tag** | 5.2.0 |
+| **Tested up to** | 7.0 |
+| **Stable tag** | 5.2.1 |
 | **Requires PHP** | 7.4 |
 | **Contributors** | dd32, elearningevolve, adeelraza |
 | **Donate link** | [Support via Stripe](https://link.elearningevolve.com/self-pay) |
@@ -130,7 +130,7 @@ Upload timeouts and browser crashes
 - **Optimized Performance** - Fast file scanning and memory-efficient
 
 ### Compatibility
-- **WordPress 6.0 - 6.8** - Fully tested with latest WordPress
+- **WordPress 6.0 - 7.0** - Fully tested with latest WordPress
 - **PHP 7.4 - 8.3** - Works with all modern PHP versions
 - **WooCommerce Compatible** - Perfect for e-commerce stores
 - **Page Builder Compatible** - Works with Elementor, Gutenberg, etc.
@@ -289,6 +289,12 @@ Upload timeouts and browser crashes
 ---
 
 ## Changelog
+
+### 5.2.1 
+
+* Fixed: Resolved "Unable to determine root directory" error on hosts where 
+  the default guessed path (home directory) isn't readable. Plugin now 
+  falls back to ABSPATH and uploads folder automatically — true zero-config.
 
 ### 5.2.0 - February 27, 2026
 
