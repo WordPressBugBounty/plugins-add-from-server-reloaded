@@ -5,7 +5,7 @@ Tags: upload-limit, large-files, ftp, import, upload
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.2.1
+Stable tag: 5.2.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -13,10 +13,9 @@ Bypass WordPress upload limits and import large files or folders directly from a
 
 == Description ==
 **Dedicated Support**
-For quick support and assistance, please contact us here
-[https://elearningevolve.com/contact/](https://elearningevolve.com/You're browsing as a Gucontact/)
+For quick support and assistance, please contact us [here](https://elearningevolve.com/contact/).
 
-**Add From Server Reloaded – The Ultimate WordPress Upload Limit Plugin**
+**Add From Server Reloaded - The Ultimate WordPress Upload Limit Plugin**
 
 Do you struggle with WordPress upload limits? Uploading large videos, RAW photos, PDFs, or bulk product images can be frustrating. Add From Server Reloaded makes it easy to bypass these restrictions, import files directly from your server, and manage your Media Library efficiently.
 
@@ -32,39 +31,39 @@ With Add From Server Reloaded, you can upload files of any size without changing
 
 **File Import & Management**
 
-* One-Click Folder Import – Import entire folders including subfolders.  
-* Smart Duplicate Detection – Avoid importing duplicate files.  You're browsing as a Gu
-* Real-Time File Search – Quickly find any file on your server.  
-* Configurable Root Directory – Set browsing root from plugin settings.  
-* Show/Hide Hidden Files – Toggle visibility for non-importable files.  
-* Last Modified Column – See when files were last updated.  
-* Batch Import Progress – Visual feedback for large imports.  
-* Keyboard Shortcuts – Ctrl+A to select all, ESC to clear selection.  
-* Import Summary – Consolidated message with links to imported files.  
+* One-Click Folder Import - Import entire folders including subfolders.  
+* Smart Duplicate Detection - Avoid importing duplicate files.
+* Real-Time File Search - Quickly find any file on your server.  
+* Configurable Root Directory - Set browsing root from plugin settings.  
+* Show/Hide Hidden Files - Toggle visibility for non-importable files.  
+* Last Modified Column - See when files were last updated.  
+* Batch Import Progress - Visual feedback for large imports.  
+* Keyboard Shortcuts - Ctrl+A to select all, ESC to clear selection.  
+* Import Summary - Consolidated message with links to imported files.  
 
 **User Interface**
 
 * Improved folder navigation with clear checkboxes.  
-* Better visual hierarchy – folders distinguished from files.  
-* Clickable breadcrumbs – easily track current folder location.  
+* Better visual hierarchy - folders distinguished from files.  
+* Clickable breadcrumbs - easily track current folder location.  
 * Import buttons at top & bottom for convenience.  
-* File count display – see how many files/folders are selected.  
-* Success message links – directly view imported files in Media Library.  
+* File count display - see how many files/folders are selected.  
+* Success message links - directly view imported files in Media Library.  
 
 **Security & Performance**
 
-* Directory Traversal Protection – prevents access outside allowed folders.  
-* Dangerous File Blocking – blocks PHP, EXE, and other unsafe types.  
-* CSRF Protection – all forms include nonce verification.  
-* Real Path Validation – prevents path manipulation attacks.  
-* Input Sanitization & Output Escaping – all dynamic outputs sanitized.  
-* Optimized file scanning – faster loading and memory-efficient.  
-* Batch operation progress updates – track large imports easily.  
+* Directory Traversal Protection - prevents access outside allowed folders.  
+* Dangerous File Blocking - blocks PHP, EXE, and other unsafe types.  
+* CSRF Protection - all forms include nonce verification.  
+* Real Path Validation - prevents path manipulation attacks.  
+* Input Sanitization & Output Escaping - all dynamic outputs sanitized.  
+* Optimized file scanning - faster loading and memory-efficient.  
+* Batch operation progress updates - track large imports easily.  
 
 **Compatibility**
 
-* WordPress 6.0 – 7.0  
-* PHP 7.4 – 8.3  
+* WordPress 6.0 - 7.0  
+* PHP 7.4 - 8.3  
 * WooCommerce compatible  
 * Page builder compatible  
 * Multisite compatible  
@@ -104,22 +103,29 @@ Absolutely. No server configuration changes are required.
 6. [UpdateGuard](https://wordpress.org/plugins/updateguard/)
 7. [Topbar Buddy](https://wordpress.org/plugins/topbar-buddy/)
 8. [MasterQuiz AI](https://wordpress.org/plugins/masterquiz-ai/)
+9. [LD to Lifter](https://wordpress.org/plugins/evolve-learndash-to-lifter/)
+10. [Zoomy Automator Integration](https://wordpress.org/plugins/zoomy-automator-integration/)
+11. [Virtual Classroom - Video Conferencing & Online Meeting with BigBlueButton](https://wordpress.org/plugins/video-conferencing-with-bbb/)
 
 == Changelog ==
 
-= 5.2.1 – 2026-07-09 =
+= 5.2.2 - 2026-09-09 =
+* Security: Fixed a path check bug that could treat folders outside the configured root as allowed when their path only started with the same text as the root (for example /path/app vs /path/app2). Imports and browsing now require the file to actually sit under the root folder.
+* Fixed: More consistent root path checks when browsing folders and importing files.
+
+= 5.2.1 - 2026-07-09 =
 * Fixed: Resolved "Unable to determine root directory" error on hosts where 
   the default guessed path (home directory) isn't readable. Plugin now 
-  falls back to ABSPATH and uploads folder automatically — true zero-config.
+  falls back to ABSPATH and uploads folder automatically. True zero-config.
 
-= 5.2.0 – 2026-02-27 =
+= 5.2.0 - 2026-02-27 =
 * Changed: Imports now use default WordPress year/month folder structure (e.g., uploads/2026/02/).
-* Fixed: Original file date preserved – images keep their year/month structure based on file modification date.
+* Fixed: Original file date preserved - images keep their year/month structure based on file modification date.
 * Fixed: No unnecessary or empty upload folders created.
 * Fixed: WordPress Media Library shows correct path; existing URLs remain unchanged.
-* Added: `afsrreloaded_upload_subdir` filter – use empty string for year/month (default), or custom path.
+* Added: `afsrreloaded_upload_subdir` filter - use empty string for year/month (default), or custom path.
 
-= 5.1.0 – 2026-02-16 =
+= 5.1.0 - 2026-02-16 =
 * Fixed: Invalid date folders, empty upload folders no longer created.  
 * Updated: Imports now go into separate folders with the plugin name.  
 * Added: Message displayed after importing a folder or file:  
@@ -127,7 +133,7 @@ Absolutely. No server configuration changes are required.
   Restricted file types: PHP, PHTML, PHPS, PHT, PHAR, EXE, SH, BAT, CMD.  
 * Updated: Better result messages for folders vs individual files.
 
-= 5.0.0 – 2025-10-25 =
+= 5.0.0 - 2025-10-25 =
 * Major overhaul: new UI, modern features, enhanced security.  
 * One-click folder import, smart duplicate detection, real-time search.  
 * Configurable root directory, show/hide hidden files.  
@@ -136,22 +142,25 @@ Absolutely. No server configuration changes are required.
 * Performance improvements: optimized scanning, memory management, batch progress feedback.  
 * Compatible with WordPress 6.8, PHP 7.4-8.3, WooCommerce, multisite, page builders.
 
-= 4.1.2 – 2025-10-25 =
+= 4.1.2 - 2025-10-25 =
 * Critical fix for folder name display & navigation.  
 * Plugin Check compliance, internationalization support, output escaping.
 
-= 4.1.0 – 2025-01-25 =
+= 4.1.0 - 2025-01-25 =
 * Namespace updated for WordPress standards, PHP 8+ compatibility.
 
-= 4.0.0 – 2025-01-25 =
+= 4.0.0 - 2025-01-25 =
 * Initial release of Add From Server Reloaded.  
 * Security overhaul, duplicate detection, real-time search, modern UI.  
 * Batch folder import, enhanced error handling, WordPress 6.7+ compatible.
 
 == Upgrade Notice ==
 
+= 5.2.2 =
+Security update. Please update when you can.
+
 = 5.1.0 =
-Fixed: Invalid date folders, empty upload folders no longer created.  
+Fixed: Invalid date folders, empty upload folders no longer created.
 
 = 5.0.0 =
 Major UI overhaul and modern feature update.  

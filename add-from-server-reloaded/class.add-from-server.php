@@ -261,21 +261,29 @@ class Plugin {
 			}
 		}
 
-		// Normalize: Remove trailing slash for consistent path handling.
-		$root = rtrim( $root, '/' );
+		// Normalize separators and strip trailing slash for consistent comparisons.
+		$root = \untrailingslashit( \wp_normalize_path( $root ) );
 
 		// Precautions: Validate root path exists and is readable.
-        if ( ! is_dir( $root ) || ! is_readable( $root ) ) {
-        // Guessed path wasn't accessible (common on locked-down shared hosting).
-        // Fall back to ABSPATH — this is always readable since WP itself runs from here.
-            $root = rtrim( ABSPATH, '/' );
+		if ( ! \is_dir( $root ) || ! \is_readable( $root ) ) {
+			// Guessed path wasn't accessible (common on locked-down shared hosting).
+			// Fall back to ABSPATH — this is always readable since WP itself runs from here.
+			$root = \untrailingslashit( \wp_normalize_path( \ABSPATH ) );
 
-            if ( ! is_dir( $root ) || ! is_readable( $root ) ) {
-        // Last resort: uploads folder is always readable/writable by WP.
-                $uploads = wp_upload_dir( null, false );
-                $root    = ! empty( $uploads['basedir'] ) ? rtrim( $uploads['basedir'], '/' ) : false;
-    }
-}
+			if ( ! \is_dir( $root ) || ! \is_readable( $root ) ) {
+				// Last resort: uploads folder is always readable/writable by WP.
+				$uploads = \wp_upload_dir( null, false );
+				$root    = ! empty( $uploads['basedir'] ) ? \untrailingslashit( \wp_normalize_path( $uploads['basedir'] ) ) : false;
+			}
+		}
+
+		// Canonicalize when possible so symlink / relative roots compare safely.
+		if ( $root ) {
+			$resolved_root = \realpath( $root );
+			if ( false !== $resolved_root ) {
+				$root = \untrailingslashit( \wp_normalize_path( $resolved_root ) );
+			}
+		}
 
 		// Additional security check for placeholder code.
 		if (
@@ -296,6 +304,83 @@ class Plugin {
 		 * @param string|false $root Root directory path or false.
 		 */
 		return apply_filters( 'afsrreloaded_root_directory', $root );
+	}
+
+	/**
+	 * Check whether a path is inside the allowed root directory.
+	 *
+	 * A plain "starts with root" check is not enough. If the root is `/path/app`,
+	 * a sibling like `/path/app2/file` would incorrectly match. After resolving
+	 * paths, we only allow the root itself or paths under `root/`.
+	 *
+	 * @since 5.2.2
+	 *
+	 * @param string       $path Absolute filesystem path to validate.
+	 * @param string|false $root Optional root directory. Defaults to get_root().
+	 * @return bool True when the path is the root or inside it.
+	 */
+	public function is_path_within_root( $path, $root = null ) {
+		if ( null === $root ) {
+			$root = $this->get_root();
+		}
+
+		if ( ! \is_string( $path ) || '' === $path || ! \is_string( $root ) || '' === $root ) {
+			return false;
+		}
+
+		$root_real = \realpath( $root );
+		$path_real = \realpath( $path );
+
+		if ( false === $root_real || false === $path_real ) {
+			return false;
+		}
+
+		return self::path_has_root_boundary( $path_real, $root_real );
+	}
+
+	/**
+	 * Compare resolved paths and require a real folder boundary under the root.
+	 *
+	 * Kept as a static helper so tests can cover this without loading a full
+	 * WordPress request.
+	 *
+	 * @since 5.2.2
+	 *
+	 * @param string $path Absolute path (preferably from realpath()).
+	 * @param string $root Absolute root path (preferably from realpath()).
+	 * @return bool True when $path is $root or a child under $root/.
+	 */
+	public static function path_has_root_boundary( $path, $root ) {
+		if ( ! \is_string( $path ) || '' === $path || ! \is_string( $root ) || '' === $root ) {
+			return false;
+		}
+
+		$path = \wp_normalize_path( $path );
+		$root = \untrailingslashit( \wp_normalize_path( $root ) );
+
+		if ( '' === $root ) {
+			return false;
+		}
+
+		if ( $path === $root ) {
+			return true;
+		}
+
+		$root_with_boundary = $root . '/';
+
+		if ( \str_starts_with( $path, $root_with_boundary ) ) {
+			return true;
+		}
+
+		// Windows paths are case-insensitive.
+		if ( 'Windows' === \PHP_OS_FAMILY ) {
+			return (
+				0 === \strcasecmp( $path, $root )
+				|| 0 === \strncasecmp( $path, $root_with_boundary, \strlen( $root_with_boundary ) )
+			);
+		}
+
+		return false;
 	}
 
 	/**
@@ -328,7 +413,7 @@ class Plugin {
 		}
 
 		// Validate the path (normalize by removing trailing slash).
-		$new_root = rtrim( $new_root, '/' );
+		$new_root = \untrailingslashit( \wp_normalize_path( $new_root ) );
 
 		if ( ! \is_dir( $new_root ) ) {
 			\add_settings_error(
@@ -389,8 +474,8 @@ class Plugin {
 
 			$full_path = realpath( trailingslashit( $root ) . ltrim( $path, '/' ) );
 			
-			// Security: Ensure the path is within root.
-			if ( ! $full_path || ! str_starts_with( $full_path, $root ) ) {
+			// Security: Ensure the path is within root (directory boundary).
+			if ( ! $this->is_path_within_root( $full_path, $root ) ) {
 				return;
 			}
 
@@ -461,10 +546,10 @@ class Plugin {
 		foreach ( (array) $files as $file ) {
 				$filename = trailingslashit( $root ) . ltrim( $file, '/' );
 
-			// Security: Verify the real path to prevent directory traversal.
+			// Security: Verify the real path to prevent directory traversal / boundary bypass.
 			$realpath = realpath( $filename );
-			
-			if ( ! $realpath || ! str_starts_with( $realpath, $root ) ) {
+
+			if ( ! $this->is_path_within_root( $realpath, $root ) ) {
 				$errors++;
 				$error_files[] = array(
 					'filename' => basename( $file ),
@@ -676,9 +761,9 @@ class Plugin {
 	protected function get_files_from_folder( $folder_path, $root, &$blocked_files = array() ) {
 		$files = array();
 
-		// Security: Verify the real path.
+		// Security: Verify the real path (directory boundary).
 		$realpath = \realpath( $folder_path );
-		if ( ! $realpath || ! \str_starts_with( $realpath, $root ) ) {
+		if ( ! $this->is_path_within_root( $realpath, $root ) ) {
 			return $files;
 		}
 
@@ -737,8 +822,8 @@ class Plugin {
 		$filename = trailingslashit( $root ) . ltrim( $file, '/' );
 		$realpath = realpath( $filename );
 
-		// Security: Verify the real path.
-		if ( ! $realpath || ! str_starts_with( $realpath, $root ) ) {
+		// Security: Verify the real path (directory boundary).
+		if ( ! $this->is_path_within_root( $realpath, $root ) ) {
 			wp_send_json_error( array( 
 				'message' => sprintf(
 					/* translators: %s: file name */
@@ -1216,16 +1301,20 @@ class Plugin {
 			$cookie_path = sanitize_text_field( wp_unslash( $_COOKIE[ COOKIE ] ) );
 			$temp_cwd    = realpath( trailingslashit( $root ) . $cookie_path );
 			
-			// Validate the cookie path.
-			if ( $temp_cwd && str_starts_with( $temp_cwd, $root ) ) {
+			// Validate the cookie path (directory boundary).
+			if ( $this->is_path_within_root( $temp_cwd, $root ) ) {
 				$cwd = $temp_cwd;
 			}
 		}
 
 		// Validate current directory.
-		if ( ! str_starts_with( $cwd, $root ) ) {
+		if ( ! $this->is_path_within_root( $cwd, $root ) ) {
 			$cwd = $root;
 		}
+
+		// Keep separators consistent with get_root() for relative-path math.
+		$cwd = \untrailingslashit( \wp_normalize_path( $cwd ) );
+		$root = \untrailingslashit( \wp_normalize_path( $root ) );
 
 		$cwd_relative = substr( $cwd, strlen( $root ) );
 
@@ -1327,12 +1416,13 @@ class Plugin {
 		uasort( $directories, $sort_by_text );
 
 		// Prefix the parent directory.
-		if ( str_starts_with( dirname( $cwd ), $root ) && dirname( $cwd ) !== $cwd ) {
+		$parent_dir = dirname( $cwd );
+		if ( $parent_dir !== $cwd && $this->is_path_within_root( $parent_dir, $root ) ) {
 			$directories = array_merge(
 				array(
-					dirname( $cwd ) => array(
+					$parent_dir => array(
 						'text' => __( 'Parent Folder', 'add-from-server-reloaded' ),
-						'path' => $get_root_relative_path( dirname( $cwd ) ) ?: '/',
+						'path' => $get_root_relative_path( $parent_dir ) ?: '/',
 					),
 				),
 				$directories
