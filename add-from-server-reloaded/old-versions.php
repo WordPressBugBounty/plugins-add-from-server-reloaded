@@ -8,6 +8,11 @@
 
 namespace AFSRReloaded;
 
+// If this file is called directly, abort.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class Plugin {
 	public static function instance() {
 		return new Plugin();
