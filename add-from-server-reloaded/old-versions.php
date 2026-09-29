@@ -46,7 +46,7 @@ class Plugin {
 		add_action( 'pre_current_active_plugins', function() use( $error ) {
 			printf(
 				'<div class="error"><p><strong>%s</strong>: %s</p></div>',
-				esc_html__( 'Add From Server Reloaded', 'add-from-server-reloaded' ),
+				esc_html__( 'Add From Server Lite', 'add-from-server-reloaded' ),
 				esc_html( $error )
 			);
 		} );
