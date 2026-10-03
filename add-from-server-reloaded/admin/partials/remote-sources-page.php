@@ -31,9 +31,11 @@ extract( $view, EXTR_SKIP ); // phpcs:ignore WordPress.PHP.DontExtract.extract_e
 /** @var string $browse_error */
 /** @var string $browse_parent_path */
 
-$form_open  = (bool) $editing || ! empty( $form_error );
-$tested_id  = isset( $tested_id ) ? (string) $tested_id : '';
-$import_url = admin_url( 'admin.php?page=add-from-server-reloaded' );
+$form_open   = (bool) $editing || ! empty( $form_error );
+$tested_id   = isset( $tested_id ) ? (string) $tested_id : '';
+$import_url  = admin_url( 'admin.php?page=add-from-server-reloaded' );
+$history_url = admin_url( 'admin.php?page=add-from-server-reloaded-history' );
+$stage_msgs  = array( 'stage_background', 'stage_ready', 'stage_started' );
 ?>
 <div class="wrap afsr-admin-wrap">
 	<h1><?php esc_html_e( 'Remote Sources', 'add-from-server-reloaded' ); ?></h1>
@@ -48,7 +50,7 @@ $import_url = admin_url( 'admin.php?page=add-from-server-reloaded' );
 			<div class="notice notice-error"><p><?php echo esc_html( $form_error ); ?></p></div>
 		<?php endif; ?>
 
-		<?php if ( $message && isset( $notices[ $message ] ) && 'stage_started' !== $message && 'test_ok' !== $message ) : ?>
+		<?php if ( $message && isset( $notices[ $message ] ) && ! in_array( $message, $stage_msgs, true ) && 'test_ok' !== $message ) : ?>
 			<div class="notice notice-success is-dismissible"><p><?php echo esc_html( $notices[ $message ] ); ?></p></div>
 		<?php endif; ?>
 
@@ -331,13 +333,28 @@ $import_url = admin_url( 'admin.php?page=add-from-server-reloaded' );
 				</form>
 			</div>
 
-			<?php if ( 'stage_started' === $message ) : ?>
+			<?php if ( in_array( $message, $stage_msgs, true ) ) : ?>
+				<?php
+				$is_background_stage = ( 'stage_background' === $message );
+				?>
 				<div class="afsr-stage-success">
-					<span class="afsr-badge afsr-badge--success"><?php esc_html_e( 'Staged', 'add-from-server-reloaded' ); ?></span>
-					<span>
-						<?php esc_html_e( 'Files copied to staging. Ready to import.', 'add-from-server-reloaded' ); ?>
-						<a class="afsr-link" href="<?php echo esc_url( $import_url ); ?>"><?php esc_html_e( 'Review & Import', 'add-from-server-reloaded' ); ?></a>
-					</span>
+					<?php if ( $is_background_stage ) : ?>
+						<span class="afsr-badge afsr-badge--success"><?php esc_html_e( 'Staged & import started', 'add-from-server-reloaded' ); ?></span>
+						<span>
+							<?php esc_html_e( 'Files downloaded to staging and import is running in the background.', 'add-from-server-reloaded' ); ?>
+							<?php if ( \AFSRReloaded\Features::enabled( 'history' ) ) : ?>
+								<a class="afsr-link" href="<?php echo esc_url( $history_url ); ?>"><?php esc_html_e( 'View import history', 'add-from-server-reloaded' ); ?></a>
+							<?php else : ?>
+								<a class="afsr-link" href="<?php echo esc_url( $import_url ); ?>"><?php esc_html_e( 'Open Import', 'add-from-server-reloaded' ); ?></a>
+							<?php endif; ?>
+						</span>
+					<?php else : ?>
+						<span class="afsr-badge afsr-badge--success"><?php esc_html_e( 'Staged', 'add-from-server-reloaded' ); ?></span>
+						<span>
+							<?php esc_html_e( 'Files are on your server. Next: import them into the Media Library.', 'add-from-server-reloaded' ); ?>
+							<a class="afsr-link" href="<?php echo esc_url( $import_url ); ?>"><?php esc_html_e( 'Continue to Import', 'add-from-server-reloaded' ); ?></a>
+						</span>
+					<?php endif; ?>
 				</div>
 			<?php endif; ?>
 		</section>

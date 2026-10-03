@@ -26,7 +26,9 @@
 	--afsr-success: #2f9e6a;
 	--afsr-radius: 8px;
 	--afsr-font: "Segoe UI", Tahoma, sans-serif;
-	max-width: 1100px;
+	/* Cap width on large screens; stay ~70% of content area on smaller laptops. */
+	width: 100%;
+	max-width: min(1100px, 70%);
 	margin: 12px 0 40px;
 	font-family: var(--afsr-font);
 	font-size: 16px;
@@ -721,6 +723,13 @@
 }
 
 @media (max-width: 782px) {
+	/* Mobile / folded admin: use full content width. */
+	#afsr-admin-app,
+	#afsr-admin-app.afsr-pro-page,
+	#afsr-admin-app.afsr-features-page {
+		max-width: 100%;
+	}
+
 	#afsr-admin-app .afsr-pro-banner {
 		flex-direction: column;
 		align-items: flex-start;
@@ -894,7 +903,7 @@
 
 /* Pro Features cards page */
 #afsr-admin-app.afsr-features-page {
-	max-width: 1180px;
+	max-width: min(1180px, 70%);
 }
 
 #afsr-admin-app .afsr-features-hero {
@@ -959,7 +968,7 @@
  * ------------------------------------------------------------------------- */
 
 #afsr-admin-app.afsr-pro-page {
-	max-width: 1100px;
+	max-width: min(1100px, 70%);
 }
 
 #afsr-admin-app .afsr-section {

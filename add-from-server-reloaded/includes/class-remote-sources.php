@@ -179,7 +179,9 @@ class Remote_Sources {
 				);
 				exit;
 			}
-			wp_safe_redirect( add_query_arg( 'message', 'stage_started', $redirect ) );
+			// Context-aware success: background job vs manual import next step.
+			$message_key = in_array( $result, array( 'stage_background', 'stage_ready' ), true ) ? $result : 'stage_ready';
+			wp_safe_redirect( add_query_arg( 'message', $message_key, $redirect ) );
 			exit;
 		}
 
@@ -251,10 +253,13 @@ class Remote_Sources {
 		$message  = isset( $_GET['message'] ) ? sanitize_key( wp_unslash( $_GET['message'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		$notices = array(
-			'saved'         => __( 'Remote source saved.', 'add-from-server-reloaded' ),
-			'deleted'       => __( 'Remote source deleted.', 'add-from-server-reloaded' ),
-			'test_ok'       => __( 'Connection test succeeded.', 'add-from-server-reloaded' ),
-			'stage_started' => __( 'Remote files staged and import job created.', 'add-from-server-reloaded' ),
+			'saved'             => __( 'Remote source saved.', 'add-from-server-reloaded' ),
+			'deleted'           => __( 'Remote source deleted.', 'add-from-server-reloaded' ),
+			'test_ok'           => __( 'Connection test succeeded.', 'add-from-server-reloaded' ),
+			'stage_background'  => __( 'Files downloaded to staging and import is running in the background.', 'add-from-server-reloaded' ),
+			'stage_ready'       => __( 'Files are on your server. Next: import them into the Media Library.', 'add-from-server-reloaded' ),
+			// Legacy query arg from older redirects.
+			'stage_started'     => __( 'Files are on your server. Next: import them into the Media Library.', 'add-from-server-reloaded' ),
 		);
 
 		$browse_id          = '';
@@ -417,7 +422,7 @@ class Remote_Sources {
 	 *
 	 * @since 5.4.0
 	 *
-	 * @return true|WP_Error
+	 * @return string|WP_Error Success message key (`stage_background` or `stage_ready`), or WP_Error.
 	 */
 	protected function handle_stage_import() {
 		$profile_id  = isset( $_POST['profile_id'] ) ? sanitize_key( wp_unslash( $_POST['profile_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -489,7 +494,7 @@ class Remote_Sources {
 			return $job;
 		}
 
-		return true;
+		return $background ? 'stage_background' : 'stage_ready';
 	}
 
 	/**

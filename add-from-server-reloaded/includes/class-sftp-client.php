@@ -1,6 +1,7 @@
 <?php
 /**
- * SFTP client using PHP ssh2 extension.
+ * SFTP client. Uses the PHP ssh2 extension when available and falls back to
+ * the bundled phpseclib library (pure PHP) when it is not.
  *
  * @package AFSRReloaded
  * @since   5.4.0
@@ -79,6 +80,27 @@ class Sftp_Client {
 	protected $logged_in = false;
 
 	/**
+	 * Active backend: 'ssh2' or 'phpseclib'. Empty until connect() runs.
+	 *
+	 * @var string
+	 */
+	protected $backend = '';
+
+	/**
+	 * phpseclib SFTP object (phpseclib backend only).
+	 *
+	 * @var \phpseclib3\Net\SFTP|null
+	 */
+	protected $client = null;
+
+	/**
+	 * Whether connect() has prepared a phpseclib client (phpseclib backend only).
+	 *
+	 * @var bool
+	 */
+	protected $prepared = false;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 5.4.0
@@ -103,13 +125,6 @@ class Sftp_Client {
 	 * @return true|WP_Error
 	 */
 	public function connect( $pubkey_path = '', $privkey_path = '' ) {
-		if ( ! function_exists( 'ssh2_connect' ) ) {
-			return new WP_Error(
-				'ssh2_required',
-				__( 'The PHP ssh2 extension is required for SFTP connections.', 'add-from-server-reloaded' )
-			);
-		}
-
 		if ( $this->is_connected() ) {
 			return true;
 		}
@@ -117,16 +132,52 @@ class Sftp_Client {
 		$this->pubkey_path  = $pubkey_path ? wp_normalize_path( (string) $pubkey_path ) : '';
 		$this->privkey_path = $privkey_path ? wp_normalize_path( (string) $privkey_path ) : '';
 
-		$conn = @ssh2_connect( $this->host, $this->port ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-		if ( ! $conn ) {
-			return new WP_Error(
-				'sftp_connect_failed',
-				__( 'Could not connect to the SFTP server.', 'add-from-server-reloaded' )
-			);
+		if ( function_exists( 'ssh2_connect' ) ) {
+			$this->backend = 'ssh2';
+
+			$conn = @ssh2_connect( $this->host, $this->port ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			if ( ! $conn ) {
+				return new WP_Error(
+					'sftp_connect_failed',
+					__( 'Could not connect to the SFTP server.', 'add-from-server-reloaded' )
+				);
+			}
+
+			$this->connection = $conn;
+			return true;
 		}
 
-		$this->connection = $conn;
-		return true;
+		if ( self::load_phpseclib() ) {
+			$this->backend  = 'phpseclib';
+			$this->client   = new \phpseclib3\Net\SFTP( $this->host, $this->port, $this->timeout );
+			$this->prepared = true;
+			return true;
+		}
+
+		return new WP_Error(
+			'ssh2_required',
+			__( 'SFTP needs either the PHP ssh2 extension or the bundled phpseclib library, and neither could be loaded.', 'add-from-server-reloaded' )
+		);
+	}
+
+	/**
+	 * Load the bundled phpseclib library if it is not already available.
+	 *
+	 * @since 6.0.2
+	 *
+	 * @return bool True when \phpseclib3\Net\SFTP is usable.
+	 */
+	protected static function load_phpseclib() {
+		if ( class_exists( '\phpseclib3\Net\SFTP', false ) ) {
+			return true;
+		}
+
+		$autoload = dirname( __DIR__ ) . '/lib/autoload.php';
+		if ( is_readable( $autoload ) ) {
+			require_once $autoload;
+		}
+
+		return class_exists( '\phpseclib3\Net\SFTP' );
 	}
 
 	/**
@@ -149,6 +200,10 @@ class Sftp_Client {
 		$user = sanitize_user( (string) $user, true );
 		$pass = (string) $pass;
 		$auth = false;
+
+		if ( 'phpseclib' === $this->backend ) {
+			return $this->login_phpseclib( $user, $pass );
+		}
 
 		if ( $this->pubkey_path && $this->privkey_path && is_readable( $this->pubkey_path ) && is_readable( $this->privkey_path ) ) {
 			$auth = @ssh2_auth_pubkey_file( $this->connection, $user, $this->pubkey_path, $this->privkey_path, $pass ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
@@ -178,6 +233,107 @@ class Sftp_Client {
 	}
 
 	/**
+	 * Authenticate using phpseclib.
+	 *
+	 * @since 6.0.2
+	 *
+	 * @param string $user Username.
+	 * @param string $pass Password, or key passphrase when using key files.
+	 * @return true|WP_Error
+	 */
+	protected function login_phpseclib( $user, $pass ) {
+		$credential = $pass;
+
+		if ( $this->privkey_path && is_readable( $this->privkey_path ) ) {
+			try {
+				$key_data   = file_get_contents( $this->privkey_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+				$credential = \phpseclib3\Crypt\PublicKeyLoader::load( (string) $key_data, '' === $pass ? false : $pass );
+			} catch ( \Throwable $e ) {
+				return new WP_Error(
+					'sftp_login_failed',
+					__( 'SFTP login failed. Check credentials or key paths.', 'add-from-server-reloaded' )
+				);
+			}
+		}
+
+		try {
+			$ok = $this->client->login( $user, $credential );
+		} catch ( \Throwable $e ) {
+			$ok = false;
+		}
+
+		if ( ! $ok ) {
+			$this->logged_in = false;
+
+			if ( ! $this->client->isConnected() ) {
+				return new WP_Error(
+					'sftp_connect_failed',
+					__( 'Could not connect to the SFTP server.', 'add-from-server-reloaded' )
+				);
+			}
+
+			return new WP_Error(
+				'sftp_login_failed',
+				__( 'SFTP login failed. Check credentials or key paths.', 'add-from-server-reloaded' )
+			);
+		}
+
+		$this->logged_in = true;
+		return true;
+	}
+
+	/**
+	 * List a remote directory using phpseclib.
+	 *
+	 * @since 6.0.2
+	 *
+	 * @param string $remote_path Normalized remote path.
+	 * @return array|WP_Error
+	 */
+	protected function list_dir_phpseclib( $remote_path ) {
+		$raw = $this->client->rawlist( $remote_path );
+
+		if ( ! is_array( $raw ) ) {
+			return new WP_Error(
+				'sftp_list_failed',
+				__( 'Could not list remote directory.', 'add-from-server-reloaded' )
+			);
+		}
+
+		$entries = array();
+		foreach ( $raw as $name => $attrs ) {
+			$name = (string) $name;
+			if ( '.' === $name || '..' === $name ) {
+				continue;
+			}
+
+			$full = $this->join_remote( $remote_path, $name );
+			$kind = isset( $attrs['type'] ) ? (int) $attrs['type'] : 0;
+
+			// Type 2 = directory, 3 = symlink (resolve it, as ssh2_sftp_stat does).
+			if ( 3 === $kind ) {
+				$is_dir = (bool) $this->client->is_dir( $full );
+			} else {
+				$is_dir = ( 2 === $kind );
+			}
+
+			$entry = array(
+				'name' => $name,
+				'type' => $is_dir ? 'dir' : 'file',
+				'path' => $full,
+			);
+
+			if ( ! $is_dir && isset( $attrs['size'] ) ) {
+				$entry['size'] = (int) $attrs['size'];
+			}
+
+			$entries[] = $entry;
+		}
+
+		return $entries;
+	}
+
+	/**
 	 * List remote directory.
 	 *
 	 * @since 5.4.0
@@ -186,7 +342,7 @@ class Sftp_Client {
 	 * @return array|WP_Error
 	 */
 	public function list_dir( $remote_path ) {
-		if ( ! $this->logged_in || ! $this->sftp ) {
+		if ( ! $this->is_logged_in() ) {
 			return new WP_Error(
 				'sftp_not_logged_in',
 				__( 'Not connected to SFTP server.', 'add-from-server-reloaded' )
@@ -194,8 +350,56 @@ class Sftp_Client {
 		}
 
 		$remote_path = $this->normalize_remote_path( $remote_path );
-		$dir_uri     = 'ssh2.sftp://' . intval( $this->sftp ) . $remote_path;
-		$handle      = @opendir( $dir_uri ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+
+		if ( 'phpseclib' === $this->backend ) {
+			$entries = $this->list_dir_phpseclib( $remote_path );
+		} else {
+			$entries = $this->list_dir_ssh2( $remote_path );
+		}
+
+		if ( is_wp_error( $entries ) ) {
+			return $entries;
+		}
+
+		usort(
+			$entries,
+			static function ( $a, $b ) {
+				if ( $a['type'] !== $b['type'] ) {
+					return 'dir' === $a['type'] ? -1 : 1;
+				}
+				return strcasecmp( $a['name'], $b['name'] );
+			}
+		);
+
+		return $entries;
+	}
+
+	/**
+	 * Whether the client is authenticated and ready for file operations.
+	 *
+	 * @since 6.0.2
+	 *
+	 * @return bool
+	 */
+	protected function is_logged_in() {
+		if ( ! $this->logged_in ) {
+			return false;
+		}
+
+		return 'phpseclib' === $this->backend ? ( null !== $this->client ) : (bool) $this->sftp;
+	}
+
+	/**
+	 * List a remote directory using the ssh2 extension.
+	 *
+	 * @since 6.0.2
+	 *
+	 * @param string $remote_path Normalized remote path.
+	 * @return array|WP_Error
+	 */
+	protected function list_dir_ssh2( $remote_path ) {
+		$dir_uri = 'ssh2.sftp://' . intval( $this->sftp ) . $remote_path;
+		$handle  = @opendir( $dir_uri ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 
 		if ( ! $handle ) {
 			return new WP_Error(
@@ -229,16 +433,6 @@ class Sftp_Client {
 
 		closedir( $handle );
 
-		usort(
-			$entries,
-			static function ( $a, $b ) {
-				if ( $a['type'] !== $b['type'] ) {
-					return 'dir' === $a['type'] ? -1 : 1;
-				}
-				return strcasecmp( $a['name'], $b['name'] );
-			}
-		);
-
 		return $entries;
 	}
 
@@ -252,7 +446,7 @@ class Sftp_Client {
 	 * @return true|WP_Error
 	 */
 	public function download( $remote_file, $local_file ) {
-		if ( ! $this->logged_in || ! $this->sftp ) {
+		if ( ! $this->is_logged_in() ) {
 			return new WP_Error(
 				'sftp_not_logged_in',
 				__( 'Not connected to SFTP server.', 'add-from-server-reloaded' )
@@ -268,6 +462,27 @@ class Sftp_Client {
 				'local_dir_failed',
 				__( 'Could not create local directory for download.', 'add-from-server-reloaded' )
 			);
+		}
+
+		if ( 'phpseclib' === $this->backend ) {
+			$ok = false;
+			try {
+				$ok = $this->client->get( $remote_file, $local_file );
+			} catch ( \Throwable $e ) {
+				$ok = false;
+			}
+
+			if ( ! $ok ) {
+				if ( file_exists( $local_file ) ) {
+					wp_delete_file( $local_file );
+				}
+				return new WP_Error(
+					'sftp_download_failed',
+					__( 'Could not open remote file for download.', 'add-from-server-reloaded' )
+				);
+			}
+
+			return true;
 		}
 
 		$remote_uri = 'ssh2.sftp://' . intval( $this->sftp ) . $remote_file;
@@ -314,6 +529,15 @@ class Sftp_Client {
 	 * @since 5.4.0
 	 */
 	public function disconnect() {
+		if ( null !== $this->client ) {
+			try {
+				$this->client->disconnect();
+			} catch ( \Throwable $e ) {
+				unset( $e ); // Nothing useful to do on a failed disconnect.
+			}
+			$this->client = null;
+		}
+		$this->prepared   = false;
 		$this->sftp       = null;
 		$this->connection = null;
 		$this->logged_in  = false;
@@ -327,6 +551,10 @@ class Sftp_Client {
 	 * @return bool
 	 */
 	public function is_connected() {
+		if ( 'phpseclib' === $this->backend ) {
+			return $this->prepared && null !== $this->client;
+		}
+
 		return is_resource( $this->connection );
 	}
 
