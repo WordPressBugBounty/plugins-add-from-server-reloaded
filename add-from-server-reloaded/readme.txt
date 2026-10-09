@@ -5,7 +5,7 @@ Tags: upload-limit, large-files, ftp, import, upload
 Requires at least: 6.0
 Tested up to: 7.1.2
 Requires PHP: 7.4
-Stable tag: 6.0.3
+Stable tag: 6.0.4
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -46,7 +46,7 @@ That is the whole idea: put the files on disk first, then let WordPress register
 
 ### A UI that stays out of your way
 
-Browse folders and files with checkboxes, a current-path display, and selection counts. Select-all controls sit at the top and bottom of the file list; Continue/Import stays in the wizard footer. Keyboard shortcuts: Ctrl+A (or Cmd+A) selects all visible files; Esc clears search.
+Browse folders and files with checkboxes, a current-path display, and selection counts. Select-all controls sit at the top and bottom of the file list; Import files is available at the top of the browser and in the wizard footer. Keyboard shortcuts: Ctrl+A (or Cmd+A) selects all visible files; Esc clears search.
 
 ---
 
@@ -147,6 +147,10 @@ Purchase from [eLearning evolve](https://elearningevolve.com/products/add-from-s
 
 == Changelog ==
 
+= 6.0.4 =
+* UI: Admin text sized at 14px for clearer density on Import and related screens.
+* UI: Browse step uses "Import files" (top + footer) instead of vague "Continue"; options step uses "Review import".
+
 = 6.0.3 =
 * UI: Import wizard width stays about 70% of the admin content area on smaller laptops (full width on mobile).
 
@@ -203,6 +207,9 @@ Purchase from [eLearning evolve](https://elearningevolve.com/products/add-from-s
 * Initial Add From Server Lite release.
 
 == Upgrade Notice ==
+
+= 6.0.4 =
+Clearer Import buttons (top + footer) and 14px admin text. Recommended update for all Free sites.
 
 = 6.0.3 =
 Import UI layout fix for smaller laptop screens. Recommended update for all Free sites.

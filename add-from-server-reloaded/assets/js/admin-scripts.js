@@ -66,10 +66,13 @@
 	function updateContinueState() {
 		var hasSelection = selectedCount() > 0;
 		var $btn = $app.find( '[data-afsr-action="continue-step1"]' );
+		var data = window.afsrreloadedData || {};
+		var emptyHint = data.selectToImport || 'Select files to import';
+		var selectedWord = data.selectedSuffix || 'selected';
 		$btn.prop( 'disabled', ! hasSelection );
 		$btn.toggleClass( 'is-disabled', ! hasSelection );
 		$app.find( '.afsr-step1-hint' ).text(
-			hasSelection ? selectionLabel() + ' selected' : 'Select files to continue'
+			hasSelection ? selectionLabel() + ' ' + selectedWord : emptyHint
 		);
 	}
 

@@ -296,6 +296,8 @@ class Plugin {
 				'confirmLarge'    => __( 'This may take a while. Continue?', 'add-from-server-reloaded' ),
 				'selectSomething' => __( 'Please select at least one file or folder to import.', 'add-from-server-reloaded' ),
 				'backgroundHint'  => __( 'You can leave this page; the import will continue in the background.', 'add-from-server-reloaded' ),
+				'selectToImport'  => __( 'Select files to import', 'add-from-server-reloaded' ),
+				'selectedSuffix'  => __( 'selected', 'add-from-server-reloaded' ),
 				'i18n'            => array(
 					'imported'    => __( 'Imported', 'add-from-server-reloaded' ),
 					'duplicates'  => __( 'Duplicates', 'add-from-server-reloaded' ),
@@ -1881,9 +1883,12 @@ class Plugin {
 									<a class="afsr-link" href="<?php echo esc_url( add_query_arg( 'path', rawurlencode( '/' ), $url ) ); ?>"><?php esc_html_e( 'Back to root', 'add-from-server-reloaded' ); ?></a>
 								<?php endif; ?>
 							</div>
-							<?php if ( Capabilities::can_manage_settings() ) : ?>
-								<a class="afsr-link" href="<?php echo esc_url( admin_url( 'admin.php?page=add-from-server-reloaded-settings' ) ); ?>"><?php esc_html_e( 'Change root directory', 'add-from-server-reloaded' ); ?></a>
-							<?php endif; ?>
+							<div class="afsr-browser-top-actions">
+								<?php if ( Capabilities::can_manage_settings() ) : ?>
+									<a class="afsr-link" href="<?php echo esc_url( admin_url( 'admin.php?page=add-from-server-reloaded-settings' ) ); ?>"><?php esc_html_e( 'Change root directory', 'add-from-server-reloaded' ); ?></a>
+								<?php endif; ?>
+								<button type="button" class="afsr-btn afsr-btn-primary is-disabled" data-afsr-action="continue-step1" disabled><?php esc_html_e( 'Import files', 'add-from-server-reloaded' ); ?></button>
+							</div>
 						</div>
 
 						<div class="afsr-toolbar">
@@ -2036,8 +2041,8 @@ class Plugin {
 					</div>
 
 					<div class="afsr-step-footer">
-						<span class="afsr-hint afsr-step1-hint"><?php esc_html_e( 'Select files to continue', 'add-from-server-reloaded' ); ?></span>
-						<button type="button" class="afsr-btn afsr-btn-primary is-disabled" data-afsr-action="continue-step1" disabled><?php esc_html_e( 'Continue', 'add-from-server-reloaded' ); ?></button>
+						<span class="afsr-hint afsr-step1-hint"><?php esc_html_e( 'Select files to import', 'add-from-server-reloaded' ); ?></span>
+						<button type="button" class="afsr-btn afsr-btn-primary is-disabled" data-afsr-action="continue-step1" disabled><?php esc_html_e( 'Import files', 'add-from-server-reloaded' ); ?></button>
 					</div>
 				</div>
 
@@ -2154,7 +2159,7 @@ class Plugin {
 
 					<div class="afsr-step-footer is-split">
 						<button type="button" class="afsr-btn afsr-btn-ghost" data-afsr-action="back-step2"><?php esc_html_e( 'Back', 'add-from-server-reloaded' ); ?></button>
-						<button type="button" class="afsr-btn afsr-btn-primary" data-afsr-action="continue-step2"><?php esc_html_e( 'Continue', 'add-from-server-reloaded' ); ?></button>
+						<button type="button" class="afsr-btn afsr-btn-primary" data-afsr-action="continue-step2"><?php esc_html_e( 'Review import', 'add-from-server-reloaded' ); ?></button>
 					</div>
 				</div>
 
