@@ -3,9 +3,9 @@ Contributors: dd32, elearningevolve
 Donate link: https://link.elearningevolve.com/self-pay
 Tags: upload-limit, large-files, ftp, import, upload
 Requires at least: 6.0
-Tested up to: 7.1.2
+Tested up to: 7.1.3
 Requires PHP: 7.4
-Stable tag: 6.0.4
+Stable tag: 6.0.5
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -147,6 +147,11 @@ Purchase from [eLearning evolve](https://elearningevolve.com/products/add-from-s
 
 == Changelog ==
 
+= 6.0.5 =
+* Easier help: Report an issue is available beside Import and Settings so you can get support without leaving the page.
+* Clearer Import screen: steps and the file list line up cleanly, with simpler pagination under the file list.
+* Clearer Settings screen: license options stay at the top, with help beside them when you need it
+
 = 6.0.4 =
 * UI: Admin text sized at 14px for clearer density on Import and related screens.
 * UI: Browse step uses "Import files" (top + footer) instead of vague "Continue"; options step uses "Review import".
@@ -207,6 +212,9 @@ Purchase from [eLearning evolve](https://elearningevolve.com/products/add-from-s
 * Initial Add From Server Lite release.
 
 == Upgrade Notice ==
+
+= 6.0.5 =
+Clearer Import and Settings screens with in-page help and smoother loading. Recommended with Add From Server Pro 1.0.1 when Pro is installed.
 
 = 6.0.4 =
 Clearer Import buttons (top + footer) and 14px admin text. Recommended update for all Free sites.

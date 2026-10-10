@@ -166,7 +166,6 @@ class Pro_Teaser {
 		?>
 		<div class="afsr-pro-banner">
 			<div class="afsr-pro-banner__left">
-				<span class="afsr-pro-pill"><?php esc_html_e( 'PRO', 'add-from-server-reloaded' ); ?></span>
 				<p class="afsr-pro-banner__text">
 					<strong><?php echo esc_html( $title ); ?></strong>
 					<?php echo esc_html( $description ); ?>
@@ -178,10 +177,157 @@ class Pro_Teaser {
 					href="<?php echo esc_url( $primary_url ); ?>"
 					<?php echo $primary_blank ? 'target="_blank" rel="noopener noreferrer"' : ''; ?>
 				><?php echo esc_html( $primary_lbl ); ?></a>
-				<a class="afsr-link" href="<?php echo esc_url( self::features_page_url() ); ?>"><?php esc_html_e( 'See Pro Features', 'add-from-server-reloaded' ); ?></a>
+				<a class="afsr-link" href="<?php echo esc_url( self::features_page_url() ); ?>"><?php esc_html_e( 'See all features', 'add-from-server-reloaded' ); ?></a>
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Layout tokens shared by Import / Settings shells.
+	 *
+	 * @since 5.4.5
+	 *
+	 * @return array{main_max:int,sidebar:int,gap:int}
+	 */
+	public static function support_layout_tokens() {
+		return array(
+			'main_max' => 1100,
+			'sidebar'  => 260,
+			'gap'      => 20,
+		);
+	}
+
+	/**
+	 * Inline style string for #afsr-admin-app CSS variables (first paint).
+	 *
+	 * @since 5.4.5
+	 *
+	 * @return string
+	 */
+	public static function support_app_inline_style() {
+		$t = self::support_layout_tokens();
+		return sprintf(
+			'--afsr-main-max:%dpx;--afsr-sidebar-width:%dpx;--afsr-layout-gap:%dpx;--afsr-prelayout-max:min(%dpx,calc(100%% - %dpx));max-width:100%%;width:100%%;box-sizing:border-box;',
+			$t['main_max'],
+			$t['sidebar'],
+			$t['gap'],
+			$t['main_max'],
+			$t['sidebar'] + $t['gap']
+		);
+	}
+
+	/**
+	 * Open the two-column content shell.
+	 *
+	 * Sidebar is emitted immediately (column 2) so license notices / tables
+	 * streaming into the main column cannot paint over an empty rail.
+	 * Call {@see support_layout_close()} after main column markup.
+	 *
+	 * @since 5.4.5
+	 */
+	public static function support_layout_open() {
+		$t = self::support_layout_tokens();
+		$layout_style = sprintf(
+			'display:grid;grid-template-columns:minmax(0,%dpx) %dpx;justify-content:space-between;column-gap:%dpx;row-gap:%dpx;align-items:start;width:100%%;box-sizing:border-box;',
+			$t['main_max'],
+			$t['sidebar'],
+			$t['gap'],
+			$t['gap']
+		);
+		$main_style = sprintf(
+			'grid-column:1;grid-row:1;min-width:0;width:100%%;max-width:%dpx;box-sizing:border-box;overflow-x:clip;',
+			$t['main_max']
+		);
+
+		printf( '<div class="afsr-browse-layout" style="%s">', esc_attr( $layout_style ) );
+		self::render_support_sidebar();
+		printf( '<div class="afsr-browse-main" style="%s">', esc_attr( $main_style ) );
+	}
+
+	/**
+	 * Close the main column and the support shell.
+	 *
+	 * @since 5.4.5
+	 */
+	public static function support_layout_close() {
+		echo '</div><!-- .afsr-browse-main -->';
+		echo '</div><!-- .afsr-browse-layout -->';
+	}
+
+	/**
+	 * Right-rail "Report an issue" card (Import + Settings).
+	 *
+	 * Lite → WordPress.org support. Pro plugin present → vendor contact form.
+	 *
+	 * @since 5.4.5
+	 */
+	public static function render_support_sidebar() {
+		$t           = self::support_layout_tokens();
+		$support_url = self::is_pro_plugin_present()
+			? 'https://elearningevolve.com/contact/'
+			: 'https://wordpress.org/support/plugin/add-from-server-reloaded/';
+		$aside_style = sprintf(
+			'grid-column:2;grid-row:1;width:%dpx;max-width:%dpx;box-sizing:border-box;',
+			$t['sidebar'],
+			$t['sidebar']
+		);
+		?>
+		<aside class="afsr-support-sidebar" style="<?php echo esc_attr( $aside_style ); ?>" aria-label="<?php esc_attr_e( 'Support', 'add-from-server-reloaded' ); ?>">
+			<div class="afsr-card afsr-support-card">
+				<p class="afsr-support-card__text">
+					<?php
+					echo esc_html(
+						self::is_pro_plugin_present()
+							? __( 'Running into a bug or import issue? Contact our support team and we will help you out.', 'add-from-server-reloaded' )
+							: __( 'Running into a bug or import issue? Report it on the WordPress.org support forum.', 'add-from-server-reloaded' )
+					);
+					?>
+				</p>
+				<a
+					class="afsr-btn afsr-btn-secondary afsr-support-card__btn"
+					href="<?php echo esc_url( $support_url ); ?>"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<span class="dashicons dashicons-external" aria-hidden="true"></span>
+					<?php esc_html_e( 'Report an issue', 'add-from-server-reloaded' ); ?>
+				</a>
+			</div>
+		</aside>
+		<?php
+	}
+
+	/**
+	 * Critical first-paint CSS for the Import/Settings browse shell.
+	 *
+	 * Backup for tokens / narrow breakpoints; column reservation also comes
+	 * from inline styles on {@see support_layout_open()}.
+	 *
+	 * @since 5.4.5
+	 */
+	public static function enqueue_browse_layout_critical_css() {
+		static $done = false;
+		if ( $done ) {
+			return;
+		}
+		$done = true;
+
+		$t   = self::support_layout_tokens();
+		$css = sprintf(
+			'#afsr-admin-app.afsrreloaded-wrap,#afsr-admin-app.afsr-settings-wrap{--afsr-main-max:%1$dpx;--afsr-sidebar-width:%2$dpx;--afsr-layout-gap:%3$dpx;--afsr-prelayout-max:min(var(--afsr-main-max),calc(100%% - var(--afsr-sidebar-width) - var(--afsr-layout-gap)));max-width:100%%;width:100%%;box-sizing:border-box}'
+			. '#afsr-admin-app .afsr-browse-layout{display:grid;grid-template-columns:minmax(0,var(--afsr-main-max)) var(--afsr-sidebar-width);justify-content:space-between;column-gap:var(--afsr-layout-gap);row-gap:var(--afsr-layout-gap);align-items:start;width:100%%;box-sizing:border-box}'
+			. '#afsr-admin-app .afsr-browse-main{grid-column:1;grid-row:1;min-width:0;width:100%%;max-width:var(--afsr-main-max);box-sizing:border-box;overflow-x:clip}'
+			. '#afsr-admin-app .afsr-support-sidebar{grid-column:2;grid-row:1;width:var(--afsr-sidebar-width);max-width:var(--afsr-sidebar-width);box-sizing:border-box}'
+			. '#afsr-admin-app.afsrreloaded-wrap>.afsr-page-header,#afsr-admin-app.afsrreloaded-wrap>.afsr-pro-banner,#afsr-admin-app.afsr-settings-wrap>.afsr-page-header,#afsr-admin-app .afsr-stepper{max-width:var(--afsr-prelayout-max)}'
+			. '@media (max-width:960px){#afsr-admin-app.afsrreloaded-wrap,#afsr-admin-app.afsr-settings-wrap{--afsr-prelayout-max:100%%}#afsr-admin-app .afsr-browse-layout{grid-template-columns:minmax(0,1fr)!important}#afsr-admin-app .afsr-browse-main,#afsr-admin-app .afsr-support-sidebar{grid-column:1!important;grid-row:auto!important;max-width:100%%!important;width:100%%!important}}',
+			$t['main_max'],
+			$t['sidebar'],
+			$t['gap']
+		);
+
+		wp_enqueue_style( 'common' );
+		wp_add_inline_style( 'common', $css );
 	}
 
 	/**
@@ -197,7 +343,7 @@ class Pro_Teaser {
 			wp_register_style(
 				'afsr-admin-ui',
 				plugins_url( 'assets/css/admin-styles.css', AFSRRELOADED_PLUGIN_FILE ),
-				array( 'add-from-server-reloaded' ),
+				array( 'common', 'dashicons', 'add-from-server-reloaded' ),
 				file_exists( $wizard_css ) ? (string) filemtime( $wizard_css ) : AFSRRELOADED_VERSION
 			);
 		}
@@ -212,6 +358,9 @@ class Pro_Teaser {
 			);
 		}
 
+		self::enqueue_browse_layout_critical_css();
+
+		wp_enqueue_style( 'dashicons' );
 		wp_enqueue_style( 'add-from-server-reloaded' );
 		wp_enqueue_style( 'afsr-admin-ui' );
 		wp_enqueue_script( 'add-from-server-reloaded' );
@@ -219,19 +368,26 @@ class Pro_Teaser {
 	}
 
 	/**
-	 * Sidebar-only PRO badge / Get Pro styling (keeps default WP admin fonts).
+	 * Sidebar PRO badge / Get Pro styling (keeps default WP admin fonts).
 	 *
-	 * Only loads on Add From Server Lite admin screens so other wp-admin
-	 * pages (and the frontend) never receive this stylesheet.
+	 * Must load on every wp-admin screen: submenu labels include the badge
+	 * HTML globally, so gating to plugin pages made "PRO" render as plain
+	 * text on Dashboard and other non-plugin screens.
+	 * CSS is scoped to #adminmenu only.
 	 *
 	 * @since 5.4.3
 	 *
-	 * @param string $hook Current admin page hook (unused; screen gated via page slug).
+	 * @param string $hook Current admin page hook (unused).
 	 */
 	public static function enqueue_menu_badge_assets( $hook = '' ) {
 		unset( $hook );
 
-		if ( ! self::is_plugin_screen() ) {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		// No Lite PRO badges when Pro is active — skip the tiny stylesheet.
+		if ( self::is_pro_active() ) {
 			return;
 		}
 
@@ -655,7 +811,6 @@ class Pro_Teaser {
 				<div class="afsr-features-grid">
 					<?php foreach ( $cards as $card ) : ?>
 						<div class="afsr-feature-card">
-							<span class="afsr-pro-badge-dark"><?php esc_html_e( 'PRO', 'add-from-server-reloaded' ); ?></span>
 							<h2 class="afsr-feature-card__title"><?php echo esc_html( $card['title'] ); ?></h2>
 							<p class="afsr-feature-card__desc"><?php echo esc_html( $card['description'] ); ?></p>
 						</div>

@@ -574,17 +574,63 @@ jQuery( document ).ready( function( $ ) {
 				}
 			} );
 
-			var $pager = $( '#afsrreloaded-pagination' );
-			if ( perPage <= 0 || pages <= 1 ) {
-				$pager.html( '<span class="description">' + total + ' file(s)</span>' );
-				return;
+			var $pagers = $( '#afsrreloaded-pagination' );
+			var perPageOptions = [ 25, 50, 100, 0 ];
+			var perPageHtml = '<label class="afsr-pager__perpage"><span class="afsr-pager__perpage-label">Per page</span>' +
+				'<select class="afsr-pager__perpage-select" aria-label="Files per page">';
+			perPageOptions.forEach( function( opt ) {
+				var selected = ( parseInt( opt, 10 ) === parseInt( perPage, 10 ) ) ? ' selected' : '';
+				var label = opt === 0 ? 'All' : String( opt );
+				perPageHtml += '<option value="' + opt + '"' + selected + '>' + label + '</option>';
+			} );
+			perPageHtml += '</select></label>';
+
+			var rangeStart = total === 0 ? 0 : ( ( browserState.page - 1 ) * ( perPage > 0 ? perPage : total ) ) + 1;
+			var rangeEnd = perPage > 0 ? Math.min( total, browserState.page * perPage ) : total;
+			var metaText = total === 0
+				? '0 files'
+				: ( 'Showing ' + rangeStart + '–' + rangeEnd + ' of ' + total );
+
+			var navHtml = '';
+			if ( perPage > 0 && pages > 1 ) {
+				var pageButtons = '';
+				var windowSize = 2;
+				var startPage = Math.max( 1, browserState.page - windowSize );
+				var endPage = Math.min( pages, browserState.page + windowSize );
+				if ( startPage > 1 ) {
+					pageButtons += '<button type="button" class="afsr-pager__page" data-afsr-page="1">1</button>';
+					if ( startPage > 2 ) {
+						pageButtons += '<span class="afsr-pager__ellipsis" aria-hidden="true">…</span>';
+					}
+				}
+				for ( var p = startPage; p <= endPage; p++ ) {
+					pageButtons += '<button type="button" class="afsr-pager__page' + ( p === browserState.page ? ' is-active' : '' ) + '" data-afsr-page="' + p + '"' + ( p === browserState.page ? ' aria-current="page"' : '' ) + '>' + p + '</button>';
+				}
+				if ( endPage < pages ) {
+					if ( endPage < pages - 1 ) {
+						pageButtons += '<span class="afsr-pager__ellipsis" aria-hidden="true">…</span>';
+					}
+					pageButtons += '<button type="button" class="afsr-pager__page" data-afsr-page="' + pages + '">' + pages + '</button>';
+				}
+
+				navHtml =
+					'<div class="afsr-pager__nav" role="navigation" aria-label="Pagination">' +
+					'<button type="button" class="afsr-pager__btn afsr-pager__prev"' + ( browserState.page <= 1 ? ' disabled' : '' ) + ' aria-label="Previous page">&lsaquo;</button>' +
+					'<div class="afsr-pager__pages">' + pageButtons + '</div>' +
+					'<button type="button" class="afsr-pager__btn afsr-pager__next"' + ( browserState.page >= pages ? ' disabled' : '' ) + ' aria-label="Next page">&rsaquo;</button>' +
+					'</div>';
 			}
 
-			$pager.html(
-				'<button type="button" class="button" id="afsrreloaded-page-prev"' + ( browserState.page <= 1 ? ' disabled' : '' ) + '>&laquo;</button> ' +
-				'<span>Page ' + browserState.page + ' of ' + pages + ' (' + total + ' files)</span> ' +
-				'<button type="button" class="button" id="afsrreloaded-page-next"' + ( browserState.page >= pages ? ' disabled' : '' ) + '>&raquo;</button>'
-			);
+			var pagerHtml =
+				'<div class="afsr-pager">' +
+				'<div class="afsr-pager__left">' +
+				'<span class="afsr-pager__meta">' + metaText + '</span>' +
+				perPageHtml +
+				'</div>' +
+				navHtml +
+				'</div>';
+
+			$pagers.html( pagerHtml );
 		}
 
 		$( document ).on( 'keydown', '#afsrreloaded-file-search', function( e ) {
@@ -630,22 +676,30 @@ jQuery( document ).ready( function( $ ) {
 			applyBrowserView();
 		} );
 
-		$( '#afsrreloaded-per-page' ).on( 'change', function() {
+		$( document ).on( 'change', '.afsr-pager__perpage-select, #afsrreloaded-per-page', function() {
 			browserState.perPage = parseInt( $( this ).val(), 10 ) || 0;
 			browserState.page = 1;
 			applyBrowserView();
 		} );
 
-		$( document ).on( 'click', '#afsrreloaded-page-prev', function() {
+		$( document ).on( 'click', '.afsr-pager__prev', function() {
 			if ( browserState.page > 1 ) {
 				browserState.page -= 1;
 				applyBrowserView();
 			}
 		} );
 
-		$( document ).on( 'click', '#afsrreloaded-page-next', function() {
+		$( document ).on( 'click', '.afsr-pager__next', function() {
 			browserState.page += 1;
 			applyBrowserView();
+		} );
+
+		$( document ).on( 'click', '.afsr-pager__page', function() {
+			var page = parseInt( $( this ).data( 'afsr-page' ), 10 ) || 1;
+			if ( page !== browserState.page ) {
+				browserState.page = page;
+				applyBrowserView();
+			}
 		} );
 
 		applyBrowserView();

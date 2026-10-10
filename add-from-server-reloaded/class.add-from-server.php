@@ -263,7 +263,7 @@ class Plugin {
 		\wp_register_style(
 			'afsr-admin-ui',
 			\plugins_url( 'assets/css/admin-styles.css', __FILE__ ),
-			array( 'add-from-server-reloaded' ),
+			array( 'common', 'dashicons', 'add-from-server-reloaded' ),
 			file_exists( $wizard_css ) ? (string) filemtime( $wizard_css ) : AFSRRELOADED_VERSION
 		);
 
@@ -353,6 +353,8 @@ class Plugin {
 		\add_action(
 			'load-' . $page_slug,
 			function () {
+				Pro_Teaser::enqueue_browse_layout_critical_css();
+				\wp_enqueue_style( 'dashicons' );
 				\wp_enqueue_style( 'add-from-server-reloaded' );
 				\wp_enqueue_script( 'add-from-server-reloaded' );
 				\wp_enqueue_style( 'afsr-admin-ui' );
@@ -472,82 +474,84 @@ class Plugin {
 		Pro_Teaser::enqueue_locked_ui_assets();
 		?>
 		<div class="wrap afsr-admin-wrap">
-			<div id="afsr-admin-app" class="afsr-wrap">
+			<div id="afsr-admin-app" class="afsr-wrap afsr-settings-wrap" style="<?php echo esc_attr( Pro_Teaser::support_app_inline_style() ); ?>">
 				<div class="afsr-page-header">
 					<h1 class="afsr-page-title"><?php esc_html_e( 'Settings', 'add-from-server-reloaded' ); ?></h1>
 					<p class="afsr-page-subtitle"><?php esc_html_e( 'Configure import root, file safety options, and Pro license.', 'add-from-server-reloaded' ); ?></p>
 				</div>
 
-				<div class="afsr-card">
-					<?php \settings_errors( 'afsrreloaded_settings' ); ?>
-					<form method="post" action="">
-						<?php \wp_nonce_field( 'afsrreloaded_settings' ); ?>
-						<table class="form-table" style="margin-top:0;">
-							<tr>
-								<th scope="row">
-									<label for="afsrreloaded_root_directory"><?php esc_html_e( 'Root Directory Path', 'add-from-server-reloaded' ); ?></label>
-								</th>
-								<td>
-									<input
-										type="text"
-										name="afsrreloaded_root_directory"
-										id="afsrreloaded_root_directory"
-										class="regular-text"
-										placeholder="/var/www/your-files/"
-										value="<?php echo esc_attr( $root ? rtrim( $root, '/' ) : '' ); ?>"
-									/>
-									<p class="description">
-										<?php esc_html_e( 'The path above is your current root directory. Change it to browse files from a different location.', 'add-from-server-reloaded' ); ?>
-									</p>
-								</td>
-							</tr>
-							<tr>
-								<th scope="row">
-									<?php esc_html_e( 'Blocked file types', 'add-from-server-reloaded' ); ?>
-								</th>
-								<td>
-									<label for="afsrreloaded_allow_dangerous_types">
-										<input
-											type="checkbox"
-											name="afsrreloaded_allow_dangerous_types"
-											id="afsrreloaded_allow_dangerous_types"
-											value="1"
-											<?php checked( $allow_dangerous ); ?>
-										/>
-										<?php esc_html_e( 'Allow PHP, SVG, and other normally blocked file types', 'add-from-server-reloaded' ); ?>
-									</label>
-									<p class="description" style="color:#b32d2e;max-width:42em;">
-										<?php esc_html_e( 'Enable at your own risk. PHP and similar scripts can execute on the server; SVG can contain malicious code. Only turn this on if you trust every file you import.', 'add-from-server-reloaded' ); ?>
-									</p>
-								</td>
-							</tr>
-						</table>
-						<p>
-							<input type="submit" name="afsrreloaded_save_settings" class="afsr-btn afsr-btn-primary" value="<?php esc_attr_e( 'Save Changes', 'add-from-server-reloaded' ); ?>" />
-							<?php if ( \get_option( 'afsrreloaded_root_directory', '' ) ) : ?>
-								<input type="submit" name="afsrreloaded_save_settings" class="afsr-btn afsr-btn-secondary" value="<?php esc_attr_e( 'Reset to Default', 'add-from-server-reloaded' ); ?>"
-									onclick="document.getElementById('afsrreloaded_root_directory').value=''; return true;" />
+				<?php Pro_Teaser::support_layout_open(); ?>
+						<div id="afsr-pro-license" class="afsr-settings-license">
+							<?php if ( Pro_Teaser::is_pro_plugin_present() ) : ?>
+								<div class="afsr-card">
+									<?php
+									/**
+									 * Renders the Pro license panel at the top of Settings.
+									 *
+									 * @since 5.4.4
+									 */
+									do_action( 'afsrreloaded_settings_license_panel' );
+									?>
+								</div>
+							<?php else : ?>
+								<?php Pro_Teaser::render_settings_section(); ?>
 							<?php endif; ?>
-						</p>
-					</form>
-				</div>
-
-				<div id="afsr-pro-license" style="margin-top:16px;">
-					<?php if ( Pro_Teaser::is_pro_plugin_present() ) : ?>
-						<div class="afsr-card">
-							<?php
-							/**
-							 * Renders the Pro license panel below general settings.
-							 *
-							 * @since 5.4.4
-							 */
-							do_action( 'afsrreloaded_settings_license_panel' );
-							?>
 						</div>
-					<?php else : ?>
-						<?php Pro_Teaser::render_settings_section(); ?>
-					<?php endif; ?>
-				</div>
+
+						<div class="afsr-card">
+							<?php \settings_errors( 'afsrreloaded_settings' ); ?>
+							<form method="post" action="">
+								<?php \wp_nonce_field( 'afsrreloaded_settings' ); ?>
+								<table class="form-table" style="margin-top:0;">
+									<tr>
+										<th scope="row">
+											<label for="afsrreloaded_root_directory"><?php esc_html_e( 'Root Directory Path', 'add-from-server-reloaded' ); ?></label>
+										</th>
+										<td>
+											<input
+												type="text"
+												name="afsrreloaded_root_directory"
+												id="afsrreloaded_root_directory"
+												class="regular-text"
+												placeholder="/var/www/your-files/"
+												value="<?php echo esc_attr( $root ? rtrim( $root, '/' ) : '' ); ?>"
+											/>
+											<p class="description">
+												<?php esc_html_e( 'The path above is your current root directory. Change it to browse files from a different location.', 'add-from-server-reloaded' ); ?>
+											</p>
+										</td>
+									</tr>
+									<tr>
+										<th scope="row">
+											<?php esc_html_e( 'Blocked file types', 'add-from-server-reloaded' ); ?>
+										</th>
+										<td>
+											<label for="afsrreloaded_allow_dangerous_types">
+												<input
+													type="checkbox"
+													name="afsrreloaded_allow_dangerous_types"
+													id="afsrreloaded_allow_dangerous_types"
+													value="1"
+													<?php checked( $allow_dangerous ); ?>
+												/>
+												<?php esc_html_e( 'Allow PHP, SVG, and other normally blocked file types', 'add-from-server-reloaded' ); ?>
+											</label>
+											<p class="description" style="color:#b32d2e;max-width:42em;">
+												<?php esc_html_e( 'Enable at your own risk. PHP and similar scripts can execute on the server; SVG can contain malicious code. Only turn this on if you trust every file you import.', 'add-from-server-reloaded' ); ?>
+											</p>
+										</td>
+									</tr>
+								</table>
+								<p>
+									<input type="submit" name="afsrreloaded_save_settings" class="afsr-btn afsr-btn-primary" value="<?php esc_attr_e( 'Save Changes', 'add-from-server-reloaded' ); ?>" />
+									<?php if ( \get_option( 'afsrreloaded_root_directory', '' ) ) : ?>
+										<input type="submit" name="afsrreloaded_save_settings" class="afsr-btn afsr-btn-secondary" value="<?php esc_attr_e( 'Reset to Default', 'add-from-server-reloaded' ); ?>"
+											onclick="document.getElementById('afsrreloaded_root_directory').value=''; return true;" />
+									<?php endif; ?>
+								</p>
+							</form>
+						</div>
+				<?php Pro_Teaser::support_layout_close(); ?>
 			</div>
 		</div>
 		<?php
@@ -1837,7 +1841,7 @@ class Plugin {
 		uasort( $files, $sort_by_text );
 
 		?>
-		<div id="afsr-admin-app" class="afsr-wrap afsrreloaded-wrap">
+		<div id="afsr-admin-app" class="afsr-wrap afsrreloaded-wrap" style="<?php echo esc_attr( Pro_Teaser::support_app_inline_style() ); ?>">
 			<div class="afsr-page-header">
 				<h1 class="afsr-page-title"><?php esc_html_e( 'Import', 'add-from-server-reloaded' ); ?></h1>
 				<p class="afsr-page-subtitle"><?php esc_html_e( 'Bring files already on your server into the Media Library.', 'add-from-server-reloaded' ); ?></p>
@@ -1845,8 +1849,8 @@ class Plugin {
 
 			<?php
 			Pro_Teaser::render_upgrade_banner(
-				__( 'More import options with Pro', 'add-from-server-reloaded' ),
-				__( 'Background Imports, deferred thumbnails, folder structure and duplicate handling are Pro features.', 'add-from-server-reloaded' )
+				__( 'Unlock more import options', 'add-from-server-reloaded' ),
+				__( 'Background imports, deferred thumbnails, folder structure, and duplicate handling.', 'add-from-server-reloaded' )
 			);
 			?>
 
@@ -1867,6 +1871,7 @@ class Plugin {
 				</li>
 			</ol>
 
+			<?php Pro_Teaser::support_layout_open(); ?>
 			<form method="post" action="<?php echo esc_url( $url ); ?>" id="afsrreloaded-import-form">
 				<?php wp_nonce_field( 'afsrreloaded_import' ); ?>
 
@@ -1879,14 +1884,14 @@ class Plugin {
 							<div class="afsr-path-row">
 								<span class="afsr-root-pill"><?php esc_html_e( 'ROOT', 'add-from-server-reloaded' ); ?></span>
 								<span class="afsr-path-text"><?php echo esc_html( $cwd ); ?></span>
+								<?php if ( Capabilities::can_manage_settings() ) : ?>
+									<a class="afsr-link afsr-change-root-link" href="<?php echo esc_url( admin_url( 'admin.php?page=add-from-server-reloaded-settings' ) ); ?>"><?php esc_html_e( 'Change root directory', 'add-from-server-reloaded' ); ?></a>
+								<?php endif; ?>
 								<?php if ( 0 !== strcmp( $cwd, $root ) ) : ?>
 									<a class="afsr-link" href="<?php echo esc_url( add_query_arg( 'path', rawurlencode( '/' ), $url ) ); ?>"><?php esc_html_e( 'Back to root', 'add-from-server-reloaded' ); ?></a>
 								<?php endif; ?>
 							</div>
 							<div class="afsr-browser-top-actions">
-								<?php if ( Capabilities::can_manage_settings() ) : ?>
-									<a class="afsr-link" href="<?php echo esc_url( admin_url( 'admin.php?page=add-from-server-reloaded-settings' ) ); ?>"><?php esc_html_e( 'Change root directory', 'add-from-server-reloaded' ); ?></a>
-								<?php endif; ?>
 								<button type="button" class="afsr-btn afsr-btn-primary is-disabled" data-afsr-action="continue-step1" disabled><?php esc_html_e( 'Import files', 'add-from-server-reloaded' ); ?></button>
 							</div>
 						</div>
@@ -2030,13 +2035,7 @@ class Plugin {
 							</tfoot>
 						</table>
 
-						<div class="afsr-pagination" id="afsrreloaded-pagination"></div>
-						<select id="afsrreloaded-per-page" class="afsr-legacy-toolbar" hidden aria-hidden="true">
-							<option value="25">25</option>
-							<option value="50" selected>50</option>
-							<option value="100">100</option>
-							<option value="0">All</option>
-						</select>
+						<div class="afsr-pagination" data-afsr-pagination id="afsrreloaded-pagination"></div>
 						<button type="button" id="afsrreloaded-clear-search" class="afsr-legacy-toolbar" hidden aria-hidden="true">Clear</button>
 					</div>
 
@@ -2234,6 +2233,7 @@ class Plugin {
 					</div>
 				</div>
 			</form>
+			<?php Pro_Teaser::support_layout_close(); ?>
 		</div>
 		<?php
 	}

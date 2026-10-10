@@ -3,7 +3,7 @@
  * Plugin Name:       Add From Server Lite
  * Plugin URI:        https://wordpress.org/plugins/add-from-server-reloaded/
  * Description:       Bypass WordPress upload limit. Import large files from your server to Media Library with reliable chunked imports. Pair with Add From Server Pro (AFS Pro) for background jobs and advanced queue tools.
- * Version:           6.0.4
+ * Version:           6.0.5
  * Author:            eLearning evolve
  * Author URI:        https://elearningevolve.com/about/
  * License:           GPL-3.0+
@@ -12,7 +12,7 @@
  * Requires PHP:      7.4
  * Domain Path:       /languages
  * Requires at least: 6.0
- * Tested up to:      7.1.2
+ * Tested up to:      7.1.3
  *
  * @since             4.0.0
  * @package           Add From Server Lite
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 defined( 'AFSRRELOADED_MIN_WP' ) || define( 'AFSRRELOADED_MIN_WP', '6.0' );
 defined( 'AFSRRELOADED_MIN_PHP' ) || define( 'AFSRRELOADED_MIN_PHP', '7.4' );
-defined( 'AFSRRELOADED_VERSION' ) || define( 'AFSRRELOADED_VERSION', '6.0.4' );
+defined( 'AFSRRELOADED_VERSION' ) || define( 'AFSRRELOADED_VERSION', '6.0.5' );
 defined( 'AFSRRELOADED_PLUGIN_FILE' ) || define( 'AFSRRELOADED_PLUGIN_FILE', __FILE__ );
 defined( 'AFSRRELOADED_PLUGIN_DIR_PATH' ) || define( 'AFSRRELOADED_PLUGIN_DIR_PATH', plugin_dir_path( __FILE__ ) );
 defined( 'AFSRRELOADED_PLUGIN_DIR_URL' ) || define( 'AFSRRELOADED_PLUGIN_DIR_URL', plugin_dir_url( __FILE__ ) );
