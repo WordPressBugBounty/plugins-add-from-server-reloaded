@@ -47,7 +47,7 @@ class Plugin {
 		/**
 		 * Filters the uploads subdirectory used for imported files.
 		 *
-		 * Empty string keeps WordPress year/month folders.
+		 * Empty string keeps WordPress year/month folders. Pro Folder_Preserve hooks this.
 		 *
 		 * @since 5.0.1
 		 * @since 5.4.0 Added $context (source_relative, preserve_structure).
@@ -57,19 +57,6 @@ class Plugin {
 		 */
 		$subdir = apply_filters( 'afsrreloaded_upload_subdir', '', $context );
 		$subdir = is_string( $subdir ) ? trim( $subdir ) : '';
-
-		// Safety net: if preserve was requested but no filter set a subdir, build one here.
-		if (
-			'' === $subdir &&
-			! empty( $context['preserve_structure'] ) &&
-			class_exists( __NAMESPACE__ . '\\Features' ) &&
-			Features::enabled( 'folder_preserve' ) &&
-			! empty( $context['source_relative'] ) &&
-			class_exists( __NAMESPACE__ . '\\File_Filters' )
-		) {
-			$subdir = File_Filters::preserve_subdir_from_relative( (string) $context['source_relative'], 'afsr-imports' );
-			$subdir = is_string( $subdir ) ? trim( $subdir ) : '';
-		}
 
 		if ( '' === $subdir ) {
 			if ( $create_dir && ! empty( $uploads['path'] ) && ! wp_mkdir_p( $uploads['path'] ) ) {
@@ -146,42 +133,17 @@ class Plugin {
 		$this->import_processor = new Import_Processor( $this );
 		new Import_Ajax( $this->import_processor );
 
-		// Always register Cron/History classes; they respect Features::* at runtime.
-		// Pro registers feature filters on plugins_loaded:20, before admin_menu/init usage.
-		new Import_Cron( $this->import_processor );
-
 		\add_action(
 			'init',
 			static function () {
 				Installer::maybe_upgrade();
-				if ( Features::enabled( 'background' ) ) {
-					Import_Cron::ensure_scheduled();
-				}
 			},
 			20
 		);
 
-		if ( is_admin() ) {
-			new Import_History( $this->import_processor );
-		}
-
-		// Freemium upgrade teasers (locked UI when Pro is not licensed).
+		// Free-only teasers / locked Pro menu stubs. Pro boots real feature modules
+		// from add-from-server-reloaded-pro when licensed (plugins_loaded:20+).
 		Pro_Teaser::boot();
-
-		// Extensions: Folder preserve / email / scheduler / remote / REST / CLI / RBAC.
-		// Instantiated early; each class gates Features at use-time (after Pro boots).
-		new Folder_Preserve();
-		new Email_Notifications();
-		new Access_Settings();
-
-		$scheduler = new Import_Scheduler( $this, $this->import_processor );
-		new Remote_Sources( $this, $this->import_processor );
-		new Duplicate_Manager( $this );
-		new Import_Rest_Api( $this, $this->import_processor, $scheduler );
-
-		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			new Import_Cli( $this, $this->import_processor, $scheduler );
-		}
 	}
 
 	/**
@@ -242,11 +204,14 @@ class Plugin {
 	 */
 	public function admin_init() {
 		// Register JS & CSS with cache busting.
+		$core_js  = AFSRRELOADED_PLUGIN_DIR_PATH . 'add-from-server.js';
+		$core_css = AFSRRELOADED_PLUGIN_DIR_PATH . 'add-from-server.css';
+
 		\wp_register_script(
 			'add-from-server-reloaded',
 			\plugins_url( '/add-from-server.js', __FILE__ ),
 			array( 'jquery' ),
-			AFSRRELOADED_VERSION,
+			file_exists( $core_js ) ? (string) filemtime( $core_js ) : AFSRRELOADED_VERSION,
 			true
 		);
 
@@ -254,7 +219,7 @@ class Plugin {
 			'add-from-server-reloaded',
 			\plugins_url( '/add-from-server.css', __FILE__ ),
 			array(),
-			AFSRRELOADED_VERSION
+			file_exists( $core_css ) ? (string) filemtime( $core_css ) : AFSRRELOADED_VERSION
 		);
 
 		$wizard_css = AFSRRELOADED_PLUGIN_DIR_PATH . 'assets/css/admin-styles.css';
@@ -1393,7 +1358,15 @@ class Plugin {
 		if ( Features::enabled( 'advanced_duplicates' ) ) {
 			$dup_action = sanitize_key( $args['duplicate_action'] );
 			if ( ! in_array( $dup_action, array( 'skip', 'replace', 'rename' ), true ) ) {
-				$dup_action = Duplicate_Manager::default_action();
+				/**
+				 * Default duplicate action when the request omits a valid one (Pro).
+				 *
+				 * @since 5.5.0
+				 *
+				 * @param string $action Default: skip.
+				 */
+				$fallback   = sanitize_key( (string) apply_filters( 'afsrreloaded_default_duplicate_action', 'skip' ) );
+				$dup_action = in_array( $fallback, array( 'skip', 'replace', 'rename' ), true ) ? $fallback : 'skip';
 			}
 		}
 
@@ -1496,9 +1469,9 @@ class Plugin {
 			$url = $uploads['url'] . '/' . $filename;
 		}
 
-		// Apply upload filters.
-		$return   = apply_filters(
-			'wp_handle_upload',
+		// Apply the core upload filter so other plugins can adjust sideloads (same as wp_handle_sideload).
+		$return = apply_filters(
+			'wp_handle_upload', // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WP filter, invoked intentionally.
 			array(
 				'file' => $new_file,
 				'url'  => $url,
@@ -1624,9 +1597,9 @@ class Plugin {
 				$data = \wp_generate_attachment_metadata( $id, $new_file );
 				\wp_update_attachment_metadata( $id, $data );
 			} else {
-				// Defer expensive metadata generation to background cron.
+				// Defer expensive metadata generation; Pro background cron consumes this.
 				\update_post_meta( $id, '_afsrreloaded_needs_metadata', 1 );
-				Import_Cron::schedule_soon();
+				do_action( 'afsrreloaded_schedule_background_tick', null );
 			}
 
 			// Store file hash for reliable duplicate detection.

@@ -193,12 +193,25 @@ class Import_Processor {
 			);
 		}
 
-		if ( 'background' === $mode ) {
-			Import_Cron::ensure_scheduled();
-			Import_Cron::schedule_soon();
-		}
-
 		$job = Import_Job_Repository::get_job( $job_id );
+
+		if ( $job && 'background' === $mode ) {
+			/**
+			 * Ensure Pro background cron is registered (no-op without Pro).
+			 *
+			 * @since 5.5.0
+			 */
+			do_action( 'afsrreloaded_ensure_background_cron' );
+
+			/**
+			 * Request a near-term background processing tick (Pro).
+			 *
+			 * @since 5.5.0
+			 *
+			 * @param object|null $job Job object when available.
+			 */
+			do_action( 'afsrreloaded_schedule_background_tick', $job );
+		}
 
 		/**
 		 * Fires after an import job is created.
@@ -363,7 +376,7 @@ class Import_Processor {
 		$payload['blocked_this_chunk'] = $blocked;
 
 		if ( $job && 'background' === $job->mode && empty( $job->scan_queue ) && in_array( $job->status, array( 'pending', 'running' ), true ) ) {
-			Import_Cron::schedule_soon();
+			do_action( 'afsrreloaded_schedule_background_tick', $job );
 		}
 
 		return $payload;
@@ -401,11 +414,37 @@ class Import_Processor {
 		$chunk_size = isset( $job->options['chunk_size'] ) ? absint( $job->options['chunk_size'] ) : self::DEFAULT_CHUNK_SIZE;
 		$chunk_size = max( 1, min( 25, (int) apply_filters( 'afsrreloaded_import_chunk_size', $chunk_size, $job ) ) );
 		$budget     = (int) apply_filters( 'afsrreloaded_import_time_budget', self::DEFAULT_TIME_BUDGET, $job );
-		$generate   = ! isset( $job->options['generate_metadata'] ) || ! empty( $job->options['generate_metadata'] );
-		$preserve   = ! empty( $job->options['preserve_structure'] ) && Features::enabled( 'folder_preserve' );
-		$dup_action = Features::enabled( 'advanced_duplicates' )
-			? sanitize_key( $job->options['duplicate_action'] ?? Duplicate_Manager::default_action() )
-			: 'skip';
+		$generate = ! isset( $job->options['generate_metadata'] ) || ! empty( $job->options['generate_metadata'] );
+
+		/**
+		 * Whether this job should preserve source folder structure (Pro).
+		 *
+		 * @since 5.5.0
+		 *
+		 * @param bool   $preserve Default from job options + feature flag.
+		 * @param object $job      Job object.
+		 */
+		$preserve = (bool) apply_filters(
+			'afsrreloaded_job_preserve_structure',
+			! empty( $job->options['preserve_structure'] ) && Features::enabled( 'folder_preserve' ),
+			$job
+		);
+
+		/**
+		 * Default duplicate action when the job omits one (Pro may override).
+		 *
+		 * @since 5.5.0
+		 *
+		 * @param string $action Default action: skip|replace|rename.
+		 */
+		$fallback   = sanitize_key( (string) apply_filters( 'afsrreloaded_default_duplicate_action', 'skip' ) );
+		$dup_action = 'skip';
+		if ( Features::enabled( 'advanced_duplicates' ) ) {
+			$dup_action = sanitize_key( $job->options['duplicate_action'] ?? $fallback );
+			if ( ! in_array( $dup_action, array( 'skip', 'replace', 'rename' ), true ) ) {
+				$dup_action = in_array( $fallback, array( 'skip', 'replace', 'rename' ), true ) ? $fallback : 'skip';
+			}
+		}
 
 		$items   = Import_Job_Repository::get_pending_items( $job_id, $chunk_size );
 		$started = microtime( true );
@@ -528,7 +567,7 @@ class Import_Processor {
 		$payload['chunk_results'] = $results;
 
 		if ( $job && 'background' === $job->mode && in_array( $job->status, array( 'running', 'pending' ), true ) ) {
-			Import_Cron::schedule_soon();
+			do_action( 'afsrreloaded_schedule_background_tick', $job );
 		}
 
 		return $payload;
@@ -584,7 +623,7 @@ class Import_Processor {
 		);
 
 		if ( 'background' === $job->mode ) {
-			Import_Cron::schedule_soon();
+			do_action( 'afsrreloaded_schedule_background_tick', Import_Job_Repository::get_job( $job_id ) );
 		}
 
 		return $this->status_payload( Import_Job_Repository::get_job( $job_id ) );
@@ -648,7 +687,7 @@ class Import_Processor {
 		);
 
 		if ( 'background' === $job->mode ) {
-			Import_Cron::schedule_soon();
+			do_action( 'afsrreloaded_schedule_background_tick', Import_Job_Repository::get_job( $job_id ) );
 		}
 
 		return $this->status_payload( Import_Job_Repository::get_job( $job_id ) );

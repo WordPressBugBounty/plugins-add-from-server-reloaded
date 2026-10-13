@@ -199,9 +199,11 @@
 
 		if ( action === 'toggle-hidden' ) {
 			e.preventDefault();
-			$( '#afsrreloaded-toggle-hidden' ).trigger( 'click' );
-			var showing = $( '.afsr-file-table' ).hasClass( 'showhidden' );
-			$app.find( '[data-afsr-action="toggle-hidden"]' ).text( showing ? 'Hide hidden files' : 'Show hidden files' );
+			if ( typeof window.afsrToggleHiddenFiles === 'function' ) {
+				window.afsrToggleHiddenFiles();
+			} else {
+				$( '#afsrreloaded-toggle-hidden' ).trigger( 'click' );
+			}
 			return;
 		}
 

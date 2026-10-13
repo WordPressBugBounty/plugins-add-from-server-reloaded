@@ -447,6 +447,7 @@ class Pro_Teaser {
 			}
 		}
 
+		// PRO badge only on History + Scheduled Imports (not every Pro submenu).
 		$pro_slugs = array(
 			'add-from-server-reloaded-history'   => true,
 			'add-from-server-reloaded-scheduler' => true,
@@ -691,12 +692,10 @@ class Pro_Teaser {
 	}
 
 	/**
-	 * Free sidebar: Pro Features page + Get Pro (external, never as first item).
+	 * Free sidebar: locked Pro pages + Pro Features + Get Pro (external).
 	 *
-	 * @since 5.4.2
-	 */
-	/**
-	 * Free sidebar: Pro Features page + Get Pro (external, never as first item).
+	 * When Pro is licensed, return early so Pro modules own those menu slugs
+	 * (avoids double History / Schedules / Remote / etc. entries).
 	 *
 	 * @since 5.4.2
 	 */
@@ -707,6 +706,68 @@ class Pro_Teaser {
 
 		if ( ! current_user_can( 'upload_files' ) ) {
 			return;
+		}
+
+		// Locked Pro feature pages (implementations live in the Pro plugin).
+		$locked = array(
+			array(
+				'title'    => __( 'Import History', 'add-from-server-reloaded' ),
+				'slug'     => 'add-from-server-reloaded-history',
+				'callback' => array( Pro_Locked_Screens::class, 'history' ),
+				'cap'      => 'upload_files',
+			),
+			array(
+				'title'    => __( 'Scheduled Imports', 'add-from-server-reloaded' ),
+				'slug'     => 'add-from-server-reloaded-scheduler',
+				'callback' => array( Pro_Locked_Screens::class, 'schedules' ),
+				'cap'      => 'manage_options',
+			),
+			array(
+				'title'    => __( 'Remote Sources', 'add-from-server-reloaded' ),
+				'slug'     => 'add-from-server-reloaded-remote',
+				'callback' => array( Pro_Locked_Screens::class, 'remote' ),
+				'cap'      => 'manage_options',
+			),
+			array(
+				'title'    => __( 'Duplicates', 'add-from-server-reloaded' ),
+				'slug'     => 'add-from-server-reloaded-duplicates',
+				'callback' => array( Pro_Locked_Screens::class, 'duplicates' ),
+				'cap'      => 'upload_files',
+			),
+			array(
+				'title'    => __( 'Email Alerts', 'add-from-server-reloaded' ),
+				'slug'     => 'add-from-server-reloaded-email',
+				'callback' => array( Pro_Locked_Screens::class, 'email' ),
+				'cap'      => 'manage_options',
+			),
+			array(
+				'title'    => __( 'Access Control', 'add-from-server-reloaded' ),
+				'slug'     => 'add-from-server-reloaded-access',
+				'callback' => array( Pro_Locked_Screens::class, 'access' ),
+				'cap'      => 'manage_options',
+			),
+		);
+
+		foreach ( $locked as $item ) {
+			if ( ! current_user_can( $item['cap'] ) ) {
+				continue;
+			}
+			$hook = add_submenu_page(
+				'add-from-server-reloaded',
+				$item['title'],
+				$item['title'],
+				$item['cap'],
+				$item['slug'],
+				$item['callback']
+			);
+			if ( $hook ) {
+				add_action(
+					'load-' . $hook,
+					static function () {
+						self::enqueue_locked_ui_assets();
+					}
+				);
+			}
 		}
 
 		$hook = add_submenu_page(

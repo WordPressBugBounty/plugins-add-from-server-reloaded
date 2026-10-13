@@ -112,11 +112,13 @@ class Import_Job_Repository {
 	public static function get_job( $job_id ) {
 		global $wpdb;
 
-		$table = self::jobs_table();
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Live job row; must not be stale-cached.
 		$job = $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", absint( $job_id ) )
+			$wpdb->prepare(
+				'SELECT * FROM %i WHERE id = %d',
+				self::jobs_table(),
+				absint( $job_id )
+			)
 		);
 
 		if ( ! $job ) {
@@ -199,31 +201,33 @@ class Import_Job_Repository {
 	public static function increment_counters( $job_id, $deltas ) {
 		global $wpdb;
 
-		$allowed = array( 'processed_files', 'imported', 'duplicates', 'errors', 'skipped', 'total_files' );
-		$set     = array();
-		$params  = array();
+		$processed = isset( $deltas['processed_files'] ) ? (int) $deltas['processed_files'] : 0;
+		$imported  = isset( $deltas['imported'] ) ? (int) $deltas['imported'] : 0;
+		$dups      = isset( $deltas['duplicates'] ) ? (int) $deltas['duplicates'] : 0;
+		$errors    = isset( $deltas['errors'] ) ? (int) $deltas['errors'] : 0;
+		$skipped   = isset( $deltas['skipped'] ) ? (int) $deltas['skipped'] : 0;
+		$total     = isset( $deltas['total_files'] ) ? (int) $deltas['total_files'] : 0;
 
-		foreach ( $allowed as $field ) {
-			if ( ! isset( $deltas[ $field ] ) || 0 === (int) $deltas[ $field ] ) {
-				continue;
-			}
-			$set[]    = "{$field} = {$field} + %d";
-			$params[] = (int) $deltas[ $field ];
-		}
-
-		if ( empty( $set ) ) {
+		if ( ! $processed && ! $imported && ! $dups && ! $errors && ! $skipped && ! $total ) {
 			return true;
 		}
 
-		$set[]    = 'updated_at = %s';
-		$params[] = current_time( 'mysql', true );
-		$params[] = absint( $job_id );
-
-		$table = self::jobs_table();
-		$sql   = "UPDATE {$table} SET " . implode( ', ', $set ) . ' WHERE id = %d';
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-		return false !== $wpdb->query( $wpdb->prepare( $sql, $params ) );
+		// Fixed SQL shape (no concatenated $sql) so Plugin Check can verify prepare/%i.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Live counter updates during import.
+		return false !== $wpdb->query(
+			$wpdb->prepare(
+				'UPDATE %i SET processed_files = processed_files + %d, imported = imported + %d, duplicates = duplicates + %d, errors = errors + %d, skipped = skipped + %d, total_files = total_files + %d, updated_at = %s WHERE id = %d',
+				self::jobs_table(),
+				$processed,
+				$imported,
+				$dups,
+				$errors,
+				$skipped,
+				$total,
+				current_time( 'mysql', true ),
+				absint( $job_id )
+			)
+		);
 	}
 
 	/**
@@ -249,24 +253,23 @@ class Import_Job_Repository {
 		$chunk    = array_chunk( $paths, 100 );
 
 		foreach ( $chunk as $batch ) {
-			$placeholders = array();
-			$params       = array();
-
+			// Row-by-row insert keeps SQL fully prepared (no dynamic VALUES SQL string).
+			// IGNORE semantics: skip duplicates on (job_id, path_hash).
 			foreach ( $batch as $path ) {
-				$placeholders[] = '(%d, %s, %s, %s)';
-				$params[]       = $job_id;
-				$params[]       = $path;
-				$params[]       = md5( $path );
-				$params[]       = 'pending';
-			}
-
-			// IGNORE prevents duplicate paths if a folder is re-scanned.
-			$sql = "INSERT IGNORE INTO {$table} (job_id, file_path, path_hash, status) VALUES " . implode( ', ', $placeholders );
-
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.NotPrepared
-			$result = $wpdb->query( $wpdb->prepare( $sql, $params ) );
-			if ( false !== $result ) {
-				$inserted += (int) $result;
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk scan path inserts; caching not applicable.
+				$result = $wpdb->query(
+					$wpdb->prepare(
+						'INSERT IGNORE INTO %i (job_id, file_path, path_hash, status) VALUES (%d, %s, %s, %s)',
+						$table,
+						$job_id,
+						$path,
+						md5( $path ),
+						'pending'
+					)
+				);
+				if ( false !== $result ) {
+					$inserted += (int) $result;
+				}
 			}
 		}
 
@@ -285,12 +288,11 @@ class Import_Job_Repository {
 	public static function get_pending_items( $job_id, $limit = 5 ) {
 		global $wpdb;
 
-		$table = self::items_table();
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Queue read; caching would stall imports.
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE job_id = %d AND status = %s ORDER BY id ASC LIMIT %d",
+				'SELECT * FROM %i WHERE job_id = %d AND status = %s ORDER BY id ASC LIMIT %d',
+				self::items_table(),
 				absint( $job_id ),
 				'pending',
 				absint( $limit )
@@ -331,12 +333,11 @@ class Import_Job_Repository {
 	public static function count_items_by_status( $job_id ) {
 		global $wpdb;
 
-		$table = self::items_table();
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Live progress counts.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT status, COUNT(*) AS cnt FROM {$table} WHERE job_id = %d GROUP BY status",
+				'SELECT status, COUNT(*) AS cnt FROM %i WHERE job_id = %d GROUP BY status',
+				self::items_table(),
 				absint( $job_id )
 			)
 		);
@@ -361,12 +362,11 @@ class Import_Job_Repository {
 	public static function get_recent_items( $job_id, $limit = 20 ) {
 		global $wpdb;
 
-		$table = self::items_table();
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- History UI needs fresh rows.
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE job_id = %d AND status != %s ORDER BY processed_at DESC, id DESC LIMIT %d",
+				'SELECT * FROM %i WHERE job_id = %d AND status != %s ORDER BY processed_at DESC, id DESC LIMIT %d',
+				self::items_table(),
 				absint( $job_id ),
 				'pending',
 				absint( $limit )
@@ -387,12 +387,11 @@ class Import_Job_Repository {
 	public static function get_items_by_status( $job_id, $status, $limit = 100 ) {
 		global $wpdb;
 
-		$table = self::items_table();
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Status-filtered items for UI/retry.
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE job_id = %d AND status = %s ORDER BY processed_at DESC, id DESC LIMIT %d",
+				'SELECT * FROM %i WHERE job_id = %d AND status = %s ORDER BY processed_at DESC, id DESC LIMIT %d',
+				self::items_table(),
 				absint( $job_id ),
 				sanitize_key( $status ),
 				absint( $limit )
@@ -411,12 +410,11 @@ class Import_Job_Repository {
 	public static function reset_failed_items( $job_id ) {
 		global $wpdb;
 
-		$table = self::items_table();
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Retry must write through immediately.
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$table} SET status = %s, message = NULL, attachment_id = NULL, processed_at = NULL WHERE job_id = %d AND status = %s",
+				'UPDATE %i SET status = %s, message = NULL, attachment_id = NULL, processed_at = NULL WHERE job_id = %d AND status = %s',
+				self::items_table(),
 				'pending',
 				absint( $job_id ),
 				'error'
@@ -437,12 +435,11 @@ class Import_Job_Repository {
 	public static function cancel_pending_items( $job_id ) {
 		global $wpdb;
 
-		$table = self::items_table();
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Cancel must write through immediately.
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$table} SET status = %s, processed_at = %s WHERE job_id = %d AND status = %s",
+				'UPDATE %i SET status = %s, processed_at = %s WHERE job_id = %d AND status = %s',
+				self::items_table(),
 				'cancelled',
 				current_time( 'mysql', true ),
 				absint( $job_id ),
@@ -471,31 +468,57 @@ class Import_Job_Repository {
 			'status'   => '',
 		);
 		$args     = wp_parse_args( $args, $defaults );
-		$table    = self::jobs_table();
-		$where    = '1=1';
-		$params   = array();
-
-		if ( $args['user_id'] > 0 ) {
-			$where   .= ' AND user_id = %d';
-			$params[] = absint( $args['user_id'] );
-		}
-
-		if ( ! empty( $args['status'] ) ) {
-			$where   .= ' AND status = %s';
-			$params[] = sanitize_key( $args['status'] );
-		}
-
 		$per_page = max( 1, absint( $args['per_page'] ) );
 		$page     = max( 1, absint( $args['page'] ) );
 		$offset   = ( $page - 1 ) * $per_page;
+		$table    = self::jobs_table();
+		$user_id  = absint( $args['user_id'] );
+		$status   = ! empty( $args['status'] ) ? sanitize_key( $args['status'] ) : '';
 
-		$params[] = $per_page;
-		$params[] = $offset;
-
-		$sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY id DESC LIMIT %d OFFSET %d";
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $params ) );
+		// Distinct prepare shapes so the WHERE clause is never user-built SQL.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- History list must reflect latest jobs.
+		if ( $user_id > 0 && '' !== $status ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					'SELECT * FROM %i WHERE user_id = %d AND status = %s ORDER BY id DESC LIMIT %d OFFSET %d',
+					$table,
+					$user_id,
+					$status,
+					$per_page,
+					$offset
+				)
+			);
+		} elseif ( $user_id > 0 ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					'SELECT * FROM %i WHERE user_id = %d ORDER BY id DESC LIMIT %d OFFSET %d',
+					$table,
+					$user_id,
+					$per_page,
+					$offset
+				)
+			);
+		} elseif ( '' !== $status ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					'SELECT * FROM %i WHERE status = %s ORDER BY id DESC LIMIT %d OFFSET %d',
+					$table,
+					$status,
+					$per_page,
+					$offset
+				)
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					'SELECT * FROM %i ORDER BY id DESC LIMIT %d OFFSET %d',
+					$table,
+					$per_page,
+					$offset
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map( array( __CLASS__, 'hydrate_job' ), (array) $rows );
 	}
@@ -511,29 +534,47 @@ class Import_Job_Repository {
 	public static function count_jobs( $args = array() ) {
 		global $wpdb;
 
-		$table  = self::jobs_table();
-		$where  = '1=1';
-		$params = array();
+		$table   = self::jobs_table();
+		$user_id = ! empty( $args['user_id'] ) ? absint( $args['user_id'] ) : 0;
+		$status  = ! empty( $args['status'] ) ? sanitize_key( $args['status'] ) : '';
 
-		if ( ! empty( $args['user_id'] ) ) {
-			$where   .= ' AND user_id = %d';
-			$params[] = absint( $args['user_id'] );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Count must match list_jobs.
+		if ( $user_id > 0 && '' !== $status ) {
+			$count = $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT COUNT(*) FROM %i WHERE user_id = %d AND status = %s',
+					$table,
+					$user_id,
+					$status
+				)
+			);
+		} elseif ( $user_id > 0 ) {
+			$count = $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT COUNT(*) FROM %i WHERE user_id = %d',
+					$table,
+					$user_id
+				)
+			);
+		} elseif ( '' !== $status ) {
+			$count = $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT COUNT(*) FROM %i WHERE status = %s',
+					$table,
+					$status
+				)
+			);
+		} else {
+			$count = $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT COUNT(*) FROM %i',
+					$table
+				)
+			);
 		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( ! empty( $args['status'] ) ) {
-			$where   .= ' AND status = %s';
-			$params[] = sanitize_key( $args['status'] );
-		}
-
-		$sql = "SELECT COUNT(*) FROM {$table} WHERE {$where}";
-
-		if ( empty( $params ) ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-			return (int) $wpdb->get_var( $sql );
-		}
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-		return (int) $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
+		return (int) $count;
 	}
 
 	/**
@@ -547,12 +588,11 @@ class Import_Job_Repository {
 	public static function get_runnable_jobs( $limit = 3 ) {
 		global $wpdb;
 
-		$table = self::jobs_table();
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Cron must see current runnable jobs.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE status IN (%s, %s, %s) ORDER BY updated_at ASC LIMIT %d",
+				'SELECT * FROM %i WHERE status IN (%s, %s, %s) ORDER BY updated_at ASC LIMIT %d',
+				self::jobs_table(),
 				'scanning',
 				'running',
 				'pending',
@@ -599,17 +639,21 @@ class Import_Job_Repository {
 		$items_table = self::items_table();
 
 		if ( null === $user_id ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$deleted = (int) $wpdb->query( "DELETE FROM {$items_table}" );
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$jobs = (int) $wpdb->query( "DELETE FROM {$jobs_table}" );
-			unset( $deleted );
-			return $jobs;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( $wpdb->prepare( 'DELETE FROM %i', $items_table ) );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return (int) $wpdb->query( $wpdb->prepare( 'DELETE FROM %i', $jobs_table ) );
 		}
 
 		$user_id = absint( $user_id );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$jobs_table} WHERE user_id = %d", $user_id ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT id FROM %i WHERE user_id = %d',
+				$jobs_table,
+				$user_id
+			)
+		);
 		if ( empty( $ids ) ) {
 			return 0;
 		}

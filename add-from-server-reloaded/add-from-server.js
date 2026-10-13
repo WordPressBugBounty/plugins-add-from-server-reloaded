@@ -289,27 +289,6 @@ jQuery( document ).ready( function( $ ) {
 			.fail( fail );
 	}
 
-	// Handle "show hidden files" toggle button.
-	$( '#afsrreloaded-toggle-hidden' ).on( 'click', function() {
-		var $button = $( this );
-		var $table = $( '.afsrreloaded-file-table' );
-
-		if ( $table.hasClass( 'showhidden' ) ) {
-			$table.removeClass( 'showhidden' );
-			$button.text( 'Show Hidden Files' );
-		} else {
-			$table.addClass( 'showhidden' );
-			$button.text( 'Hide Hidden Files' );
-		}
-	} );
-
-	// Handle "show hidden files" toggle link (legacy).
-	$( 'tr.hidden-toggle a' ).on( 'click', function( e ) {
-		e.preventDefault();
-		$( this ).parents( 'table' ).addClass( 'showhidden' );
-		$( '#afsrreloaded-toggle-hidden' ).text( 'Hide Hidden Files' );
-	} );
-
 	// Handle "select all" checkboxes.
 	$( '#afsrreloaded-select-all, #afsrreloaded-select-all-footer' ).on( 'change', function() {
 		var isChecked = $( this ).prop( 'checked' );
@@ -486,6 +465,39 @@ jQuery( document ).ready( function( $ ) {
 			);
 		}
 
+		function isGuidelineHiddenRow( $row ) {
+			return $row.hasClass( 'doesnt-meet-guidelines' ) || $row.hasClass( 'unreadable' );
+		}
+
+		function showingHiddenFiles() {
+			return $( '.afsrreloaded-file-table' ).hasClass( 'showhidden' );
+		}
+
+		function clearInlineDisplay( $row ) {
+			// Drop jQuery .show()/.hide() inline styles so CSS (showhidden) can win.
+			$row.css( 'display', '' );
+		}
+
+		function syncHiddenToggleLabels() {
+			var showing = showingHiddenFiles();
+			$( '#afsrreloaded-toggle-hidden' ).text( showing ? 'Hide Hidden Files' : 'Show Hidden Files' );
+			$( '#afsr-admin-app' ).find( '[data-afsr-action="toggle-hidden"]' ).text(
+				showing ? 'Hide hidden files' : 'Show hidden files'
+			);
+			$( 'tr.hidden-toggle a' ).text( showing ? 'Hide hidden files' : 'Show hidden files' );
+		}
+
+		function toggleHiddenFiles( forceShow ) {
+			var $table = $( '.afsrreloaded-file-table' );
+			if ( typeof forceShow === 'boolean' ) {
+				$table.toggleClass( 'showhidden', forceShow );
+			} else {
+				$table.toggleClass( 'showhidden' );
+			}
+			syncHiddenToggleLabels();
+			applyBrowserView();
+		}
+
 		function rowMatchesFilters( $row ) {
 			if ( $row.hasClass( 'afsrreloaded-folder-row' ) || $row.hasClass( 'hidden-toggle' ) ) {
 				return true;
@@ -535,21 +547,35 @@ jQuery( document ).ready( function( $ ) {
 		function applyBrowserView() {
 			var $rows = $( '.afsrreloaded-file-table tbody tr' );
 			var matchedFiles = [];
+			var showHidden = showingHiddenFiles();
 
 			$rows.each( function() {
 				var $row = $( this );
 				if ( $row.hasClass( 'hidden-toggle' ) ) {
+					// In-table link: only when there are blocked files and they are currently hidden.
+					clearInlineDisplay( $row );
+					$row.toggleClass( 'afsrreloaded-page-hidden', showHidden );
+					$row.removeClass( 'afsrreloaded-filter-hidden' );
 					return;
 				}
 				if ( $row.hasClass( 'afsrreloaded-folder-row' ) ) {
-					$row.show().css( 'opacity', '1' ).removeClass( 'afsrreloaded-page-hidden' );
+					clearInlineDisplay( $row );
+					$row.css( 'opacity', '1' ).removeClass( 'afsrreloaded-page-hidden afsrreloaded-filter-hidden' );
+					return;
+				}
+				// Blocked/unreadable rows stay out of the list until "Show hidden files".
+				if ( isGuidelineHiddenRow( $row ) && ! showHidden ) {
+					clearInlineDisplay( $row );
+					$row.removeClass( 'afsrreloaded-filter-hidden afsrreloaded-page-hidden' );
 					return;
 				}
 				if ( rowMatchesFilters( $row ) ) {
 					matchedFiles.push( $row );
+					clearInlineDisplay( $row );
 					$row.removeClass( 'afsrreloaded-filter-hidden' );
 				} else {
-					$row.addClass( 'afsrreloaded-filter-hidden' ).hide();
+					clearInlineDisplay( $row );
+					$row.addClass( 'afsrreloaded-filter-hidden' ).removeClass( 'afsrreloaded-page-hidden' );
 				}
 			} );
 
@@ -561,16 +587,17 @@ jQuery( document ).ready( function( $ ) {
 			}
 
 			matchedFiles.forEach( function( $row, index ) {
+				clearInlineDisplay( $row );
 				if ( perPage > 0 ) {
 					var start = ( browserState.page - 1 ) * perPage;
 					var end = start + perPage;
 					if ( index >= start && index < end ) {
-						$row.show().css( 'opacity', '1' ).removeClass( 'afsrreloaded-page-hidden' );
+						$row.css( 'opacity', '1' ).removeClass( 'afsrreloaded-page-hidden' );
 					} else {
-						$row.hide().addClass( 'afsrreloaded-page-hidden' );
+						$row.addClass( 'afsrreloaded-page-hidden' );
 					}
 				} else {
-					$row.show().css( 'opacity', '1' ).removeClass( 'afsrreloaded-page-hidden' );
+					$row.css( 'opacity', '1' ).removeClass( 'afsrreloaded-page-hidden' );
 				}
 			} );
 
@@ -632,6 +659,19 @@ jQuery( document ).ready( function( $ ) {
 
 			$pagers.html( pagerHtml );
 		}
+
+		$( '#afsrreloaded-toggle-hidden' ).on( 'click', function( e ) {
+			e.preventDefault();
+			toggleHiddenFiles();
+		} );
+
+		$( document ).on( 'click', 'tr.hidden-toggle a', function( e ) {
+			e.preventDefault();
+			toggleHiddenFiles( true );
+		} );
+
+		// Expose for wizard UI (admin-scripts.js).
+		window.afsrToggleHiddenFiles = toggleHiddenFiles;
 
 		$( document ).on( 'keydown', '#afsrreloaded-file-search', function( e ) {
 			if ( e.keyCode === 13 ) {

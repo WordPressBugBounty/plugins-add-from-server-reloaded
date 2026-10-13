@@ -16,6 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Registers and handles import AJAX endpoints.
  *
+ * Free owns create/scan/process/status/cancel. Pro registers pause/resume/retry
+ * and kick_cron when licensed (see Pro Import_Queue_Ajax).
+ *
  * @since 5.3.0
  */
 class Import_Ajax {
@@ -39,15 +42,11 @@ class Import_Ajax {
 		$this->processor = $processor;
 
 		$actions = array(
-			'afsrreloaded_create_job'   => 'create_job',
-			'afsrreloaded_scan_job'     => 'scan_job',
-			'afsrreloaded_process_job'  => 'process_job',
-			'afsrreloaded_job_status'   => 'job_status',
-			'afsrreloaded_pause_job'    => 'pause_job',
-			'afsrreloaded_resume_job'   => 'resume_job',
-			'afsrreloaded_cancel_job'   => 'cancel_job',
-			'afsrreloaded_retry_failed' => 'retry_failed',
-			'afsrreloaded_kick_cron'    => 'kick_cron',
+			'afsrreloaded_create_job'  => 'create_job',
+			'afsrreloaded_scan_job'    => 'scan_job',
+			'afsrreloaded_process_job' => 'process_job',
+			'afsrreloaded_job_status'  => 'job_status',
+			'afsrreloaded_cancel_job'  => 'cancel_job',
 		);
 
 		foreach ( $actions as $hook => $method ) {
@@ -57,6 +56,9 @@ class Import_Ajax {
 
 	/**
 	 * Create import job.
+	 *
+	 * Free accepts only Free options. Pro injects licensed options via
+	 * `afsrreloaded_ajax_create_job_options` (reads Pro POST fields itself).
 	 *
 	 * @since 5.3.0
 	 */
@@ -68,27 +70,24 @@ class Import_Ajax {
 		$folders = isset( $_POST['folders'] ) ? array_map( 'sanitize_text_field', wp_unslash( (array) $_POST['folders'] ) ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized via array_map.
 
 		$options = array(
-			'background'        => ! empty( $_POST['background'] ) && Features::enabled( 'background' ),
+			'background'        => false,
 			'generate_metadata' => true,
 			'chunk_size'        => isset( $_POST['chunk_size'] ) ? absint( $_POST['chunk_size'] ) : Import_Processor::DEFAULT_CHUNK_SIZE,
 		);
-
-		// Deferred thumbnails are Pro-only.
-		if ( Features::enabled( 'defer_thumbnails' ) && isset( $_POST['generate_metadata'] ) && '0' === (string) wp_unslash( $_POST['generate_metadata'] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$options['generate_metadata'] = false;
-		}
-
-		if ( Features::enabled( 'folder_preserve' ) && isset( $_POST['preserve_structure'] ) && '1' === (string) wp_unslash( $_POST['preserve_structure'] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$options['preserve_structure'] = true;
-		}
-
-		if ( Features::enabled( 'advanced_duplicates' ) && isset( $_POST['duplicate_action'] ) ) {
-			$action = sanitize_key( wp_unslash( $_POST['duplicate_action'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			if ( in_array( $action, array( 'skip', 'replace', 'rename' ), true ) ) {
-				$options['duplicate_action'] = $action;
-			}
-		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		/**
+		 * Filters create-job options from the AJAX request (Pro unlocks extras).
+		 *
+		 * Free ignores Pro POST fields (background, defer thumbnails, preserve,
+		 * duplicate action). When licensed, Pro reads those fields and merges them.
+		 *
+		 * @since 5.5.0
+		 *
+		 * @param array $options Base Free options.
+		 */
+		$options = apply_filters( 'afsrreloaded_ajax_create_job_options', $options );
+		$options = is_array( $options ) ? $options : array();
 
 		$result = $this->processor->create_job( $files, $folders, $options );
 		if ( is_wp_error( $result ) ) {
@@ -151,32 +150,6 @@ class Import_Ajax {
 	}
 
 	/**
-	 * Pause job.
-	 *
-	 * @since 5.3.0
-	 */
-	public function pause_job() {
-		$this->guard();
-		$this->require_pro_feature( 'queue_controls' );
-		$job_id = $this->job_id_from_request();
-		$this->assert_job_access( $job_id );
-		$this->send_result( $this->processor->pause_job( $job_id ) );
-	}
-
-	/**
-	 * Resume job.
-	 *
-	 * @since 5.3.0
-	 */
-	public function resume_job() {
-		$this->guard();
-		$this->require_pro_feature( 'queue_controls' );
-		$job_id = $this->job_id_from_request();
-		$this->assert_job_access( $job_id );
-		$this->send_result( $this->processor->resume_job( $job_id ) );
-	}
-
-	/**
 	 * Cancel job.
 	 *
 	 * @since 5.3.0
@@ -187,61 +160,6 @@ class Import_Ajax {
 		$job_id = $this->job_id_from_request();
 		$this->assert_job_access( $job_id );
 		$this->send_result( $this->processor->cancel_job( $job_id ) );
-	}
-
-	/**
-	 * Retry failed items.
-	 *
-	 * @since 5.3.0
-	 */
-	public function retry_failed() {
-		$this->guard();
-		$this->require_pro_feature( 'queue_controls' );
-		$job_id = $this->job_id_from_request();
-		$this->assert_job_access( $job_id );
-		$this->send_result( $this->processor->retry_failed( $job_id ) );
-	}
-
-	/**
-	 * Nudge background cron (used when leaving the page with Continue in background).
-	 *
-	 * @since 5.4.1
-	 */
-	public function kick_cron() {
-		$this->guard();
-
-		if ( ! Features::enabled( 'background' ) ) {
-			wp_send_json_success( array( 'scheduled' => false ) );
-		}
-
-		Import_Cron::ensure_scheduled();
-		Import_Cron::schedule_soon();
-
-		// Process one tick immediately so jobs do not sit in "pending" waiting for wp-cron.
-		Import_Cron::process_now( $this->processor );
-
-		wp_send_json_success( array( 'scheduled' => true ) );
-	}
-
-	/**
-	 * Require a Pro feature or return JSON error.
-	 *
-	 * @since 5.3.0
-	 *
-	 * @param string $feature Feature slug.
-	 */
-	protected function require_pro_feature( $feature ) {
-		if ( Features::enabled( $feature ) ) {
-			return;
-		}
-
-		wp_send_json_error(
-			array(
-				'message' => __( 'This feature requires Add From Server Pro with a valid license.', 'add-from-server-reloaded' ),
-				'code'    => 'pro_required',
-			),
-			403
-		);
 	}
 
 	/**

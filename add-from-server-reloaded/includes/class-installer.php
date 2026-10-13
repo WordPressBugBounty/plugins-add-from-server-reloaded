@@ -45,12 +45,13 @@ class Installer {
 		self::create_tables();
 		update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
 
-		// Recurring cron is only needed when Pro background imports are available.
-		if ( class_exists( __NAMESPACE__ . '\\Features' ) && Features::enabled( 'background' ) ) {
-			if ( ! wp_next_scheduled( Import_Cron::HOOK ) ) {
-				wp_schedule_event( time() + MINUTE_IN_SECONDS, 'afsrreloaded_every_minute', Import_Cron::HOOK );
-			}
-		}
+		/**
+		 * Let Pro schedule background import cron when licensed.
+		 * Free activation never registers Import_Cron itself.
+		 *
+		 * @since 5.5.0
+		 */
+		do_action( 'afsrreloaded_ensure_background_cron' );
 	}
 
 	/**
@@ -131,10 +132,21 @@ class Installer {
 	public static function drop_tables() {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( 'DROP TABLE IF EXISTS ' . Import_Job_Repository::items_table() );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( 'DROP TABLE IF EXISTS ' . Import_Job_Repository::jobs_table() );
+		// Schema drops are intentional on uninstall / cleanup (tables created via dbDelta).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				'DROP TABLE IF EXISTS %i',
+				Import_Job_Repository::items_table()
+			)
+		);
+		$wpdb->query(
+			$wpdb->prepare(
+				'DROP TABLE IF EXISTS %i',
+				Import_Job_Repository::jobs_table()
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		delete_option( self::DB_VERSION_OPTION );
 	}

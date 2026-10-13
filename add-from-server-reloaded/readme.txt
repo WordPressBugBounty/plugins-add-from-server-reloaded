@@ -2,10 +2,10 @@
 Contributors: dd32, elearningevolve
 Donate link: https://link.elearningevolve.com/self-pay
 Tags: upload-limit, large-files, ftp, import, upload
-Requires at least: 6.0
-Tested up to: 7.1.3
+Requires at least: 6.2
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 6.0.5
+Stable tag: 6.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -147,6 +147,12 @@ Purchase from [eLearning evolve](https://elearningevolve.com/products/add-from-s
 
 == Changelog ==
 
+= 6.1.0 =
+* UI: PRO badges appear only on History and Scheduled Imports in the admin menu.
+* UI: clearer control to show or hide hidden files while browsing.
+* Hardening and WordPress.org Plugin Check compliance improvements.
+* Smoother pairing with Add From Server Pro when both plugins are active.
+
 = 6.0.5 =
 * Easier help: Report an issue is available beside Import and Settings so you can get support without leaving the page.
 * Clearer Import screen: steps and the file list line up cleanly, with simpler pagination under the file list.
@@ -160,8 +166,7 @@ Purchase from [eLearning evolve](https://elearningevolve.com/products/add-from-s
 * UI: Import wizard width stays about 70% of the admin content area on smaller laptops (full width on mobile).
 
 = 6.0.2 =
-* Fixed: SFTP remotes work on hosts without the PHP ssh2 extension by falling back to bundled phpseclib (pure PHP). ssh2 is still used when available.
-* UI: Remote Sources stage success notice is clearer (background import started vs continue to Import).
+* UI: clearer success notice when continuing from a remote-source step into Import (with Add From Server Pro).
 
 = 6.0.1 =
 * UI: Settings is 2nd in the Lite sidebar; when Pro is active, Settings stays after Access Control.
@@ -170,14 +175,14 @@ Purchase from [eLearning evolve](https://elearningevolve.com/products/add-from-s
 * Readme: tightened Description/FAQ wording to match what Free actually supports.
 
 = 6.0.0 =
-* Major Upgrade: freemium AFS Lite / AFS Pro experience, refreshed Import UI, and Pro feature teasers in the free plugin. Get [Add From Server Pro](https://elearningevolve.com/products/add-from-server-pro/).
+* Major Upgrade: AFS Lite / AFS Pro freemium experience, refreshed Import UI, and Pro feature teasers in Lite. Get [Add From Server Pro](https://elearningevolve.com/products/add-from-server-pro/).
 * Chunked AJAX bulk import engine with folder scanning and cancel support.
 * Settings screen for root directory and related options; Import Files and Settings links on the Plugins screen.
 * Plugin display name updated to Add From Server Lite.
 * Security: Duplicate-check AJAX (`afsrreloaded_check_duplicate`) now requires a real file under the configured root (Path_Guard). Thanks to comradezephyr for responsible disclosure.
 * Security: File hashing skips non-regular files and files larger than 64 MiB by default (filter: afsrreloaded_file_hash_max_bytes) to limit request-time DoS via md5_file.
 * Security hardening for path boundaries, open_basedir-safe root checks, and safer handling of files already under uploads.
-* Pro-ready modules (history, schedules, remote FTP/SFTP/S3, email alerts, RBAC, REST/CLI) ship in Free and unlock with a valid AFS Pro license.
+* Advanced tools (history, schedules, remote FTP/SFTP/S3, email alerts, RBAC, REST/CLI) come from the Add From Server Pro add-on when it is installed and licensed.
 
 = 5.3.0 =
 * Freemium Free/Pro experience groundwork and Import UI refresh.
@@ -213,6 +218,9 @@ Purchase from [eLearning evolve](https://elearningevolve.com/products/add-from-s
 
 == Upgrade Notice ==
 
+= 6.1.0 =
+UI polish for PRO menu badges and hidden files, plus WordPress.org compliance improvements. Recommended with Add From Server Pro 1.0.3 when Pro is installed.
+
 = 6.0.5 =
 Clearer Import and Settings screens with in-page help and smoother loading. Recommended with Add From Server Pro 1.0.1 when Pro is installed.
 
@@ -223,7 +231,7 @@ Clearer Import buttons (top + footer) and 14px admin text. Recommended update fo
 Import UI layout fix for smaller laptop screens. Recommended update for all Free sites.
 
 = 6.0.2 =
-SFTP works without the PHP ssh2 extension (phpseclib fallback), plus clearer Remote Sources stage notices. Recommended if you use remote SFTP.
+Clearer remote-source Import notices when using Add From Server Pro.
 
 = 6.0.1 =
 UI polish for Lite sidebar order, clearer admin text, and Pro Features copy. Recommended update for all Free sites.

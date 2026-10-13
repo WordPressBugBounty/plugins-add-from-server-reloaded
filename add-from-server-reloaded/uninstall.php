@@ -41,10 +41,10 @@ function afsrreloaded_drop_tables() {
 	$jobs_table  = $wpdb->prefix . 'afsrreloaded_jobs';
 	$items_table = $wpdb->prefix . 'afsrreloaded_job_items';
 
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$wpdb->query( "DROP TABLE IF EXISTS {$items_table}" );
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$wpdb->query( "DROP TABLE IF EXISTS {$jobs_table}" );
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $items_table ) );
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $jobs_table ) );
 }
 
 /**
